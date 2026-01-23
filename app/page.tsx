@@ -170,7 +170,10 @@ export default function HomePage() {
       const filledPdfBytes = await fillPDF(uint8Array, formValues);
       
       // Create blob and download
-      const blob = new Blob([filledPdfBytes as BlobPart], { type: 'application/pdf' });
+      // Convert to ArrayBuffer for TypeScript compatibility
+      const pdfArrayBuffer = new ArrayBuffer(filledPdfBytes.length);
+      new Uint8Array(pdfArrayBuffer).set(filledPdfBytes);
+      const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
