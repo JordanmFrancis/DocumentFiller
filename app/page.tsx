@@ -260,7 +260,7 @@ export default function HomePage() {
         
         // Merge detected positions with saved labels
         const mergedFields = doc.fieldDefinitions.map(savedField => {
-          const detectedField = detectedFields.find(f => f.name === savedField.name);
+          const detectedField = detectedFields.find((f: PDFField) => f.name === savedField.name);
           if (detectedField && detectedField.position) {
             return {
               ...savedField,

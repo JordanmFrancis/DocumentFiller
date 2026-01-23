@@ -64,11 +64,21 @@ export default function PDFUploader({ onFileSelect, selectedFile, onRemove }: PD
     );
   }
 
+  const rootProps = getRootProps();
+  const { 
+    onAnimationStart, 
+    onAnimationEnd, 
+    onDragStart, 
+    onDrag, 
+    onDragEnd,
+    ...motionProps 
+  } = rootProps;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      {...getRootProps()}
+      {...motionProps}
       className={`
         relative p-12 border-2 border-dashed rounded-xl cursor-pointer
         transition-all duration-300
