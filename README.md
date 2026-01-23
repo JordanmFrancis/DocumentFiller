@@ -1,5 +1,7 @@
 # Document Filler
 
+A Next.js application for automatically filling PDF forms.
+
 A modern Next.js application for automatically filling PDF forms. Upload a PDF, detect form fields, fill them out in a clean interface, and generate filled PDFs.
 
 ## Features
