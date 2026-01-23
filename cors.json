@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["http://localhost:3000", "https://arronsite-9cf1b.web.app", "https://arronsite-9cf1b.firebaseapp.com"],
+    "method": ["GET", "HEAD", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Authorization", "Content-Length"],
+    "maxAgeSeconds": 3600
+  }
+]
