@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PDFDocument, PDFName, PDFString, rgb } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,15 +55,6 @@ export async function POST(request: NextRequest) {
               width: position.width,
               height: position.height,
             });
-            
-            if (label) {
-              textField.updateWidgetAppearances(page, {
-                text: label,
-                backgroundColor: rgb(1, 1, 1),
-                borderColor: rgb(0, 0, 0),
-                borderWidth: 1,
-              });
-            }
             
             if (defaultValue !== undefined && defaultValue !== null && defaultValue !== '') {
               textField.setText(String(defaultValue));
@@ -169,16 +160,6 @@ export async function POST(request: NextRequest) {
               height: position.height,
             });
             
-            // Set date format hint (PDF doesn't enforce this, but we can add it as a tooltip)
-            if (label) {
-              dateField.updateWidgetAppearances(page, {
-                text: label,
-                backgroundColor: rgb(1, 1, 1),
-                borderColor: rgb(0, 0, 0),
-                borderWidth: 1,
-              });
-            }
-            
             if (required) {
               dateField.enableRequired();
             }
@@ -194,15 +175,6 @@ export async function POST(request: NextRequest) {
               width: position.width,
               height: position.height,
             });
-            
-            if (label) {
-              numberField.updateWidgetAppearances(page, {
-                text: label,
-                backgroundColor: rgb(1, 1, 1),
-                borderColor: rgb(0, 0, 0),
-                borderWidth: 1,
-              });
-            }
             
             if (defaultValue !== undefined && defaultValue !== null && defaultValue !== '') {
               numberField.setText(String(defaultValue));
