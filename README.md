@@ -4,6 +4,11 @@ A Next.js application for automatically filling PDF forms.
 
 A modern Next.js application for automatically filling PDF forms. Upload a PDF, detect form fields, fill them out in a clean interface, and generate filled PDFs.
 
+## Latest Updates
+
+- ✨ **Text Scaling**: Text automatically scales to fit within PDF form fields
+- 🎨 **Field Creator**: Create new form fields by dragging and dropping on PDFs
+
 ## Features
 
 - 🔐 **Authentication**: Sign in with Google, Apple, or Email/Password
