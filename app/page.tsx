@@ -16,6 +16,7 @@ import { uploadPDF, deletePDF, downloadPDF } from '@/lib/firestore/storage';
 import { saveDocument, getUserDocuments, deleteDocument, getDocument, updateDocument } from '@/lib/firestore/documents';
 import { Download, Save, Loader2, Eye } from 'lucide-react';
 import PDFViewerEditor from '@/components/PDFViewerEditor';
+import PDFFieldCreator from '@/components/PDFFieldCreator';
 import OnboardingSlideshow from '@/components/Onboarding/OnboardingSlideshow';
 import { AnimatePresence } from 'framer-motion';
 
@@ -33,6 +34,7 @@ export default function HomePage() {
   const [processing, setProcessing] = useState(false);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
   const [showPDFEditor, setShowPDFEditor] = useState(false);
+  const [showFieldCreator, setShowFieldCreator] = useState(false);
   const [useAILabeling, setUseAILabeling] = useState(false);
   const [highlightFieldName, setHighlightFieldName] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -94,7 +96,20 @@ export default function HomePage() {
       const data = await response.json();
       setFields(data.fields);
       setFormValues({});
-      setViewMode('form');
+      
+      // If no fields detected, offer to create fields
+      if (data.fields.length === 0) {
+        setViewMode('upload');
+        // Show option to create fields
+        const shouldCreateFields = confirm(
+          'No form fields detected in this PDF. Would you like to create fields by dragging and dropping them on the document?'
+        );
+        if (shouldCreateFields) {
+          setShowFieldCreator(true);
+        }
+      } else {
+        setViewMode('form');
+      }
     } catch (error) {
       console.error('Error detecting fields:', error);
       alert('Failed to detect fields in PDF');
@@ -334,6 +349,37 @@ export default function HomePage() {
     }
   };
 
+  const handleFieldsCreated = async (createdFields: PDFField[], modifiedPdfBytes: Uint8Array) => {
+    // Convert Uint8Array to ArrayBuffer for File constructor
+    const pdfArrayBuffer = new ArrayBuffer(modifiedPdfBytes.length);
+    new Uint8Array(pdfArrayBuffer).set(modifiedPdfBytes);
+    const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
+    
+    // Create a new File from the modified PDF bytes
+    const modifiedFile = new File([blob], selectedFile?.name || 'document.pdf', { type: 'application/pdf' });
+    
+    // Update state with new fields and file
+    setFields(createdFields);
+    setSelectedFile(modifiedFile);
+    setShowFieldCreator(false);
+    setViewMode('form');
+    
+    // Optionally save the modified PDF back to storage if it's a saved document
+    if (currentDocument && user) {
+      try {
+        const pdfPath = `users/${user.uid}/documents/${currentDocument.id}/original.pdf`;
+        await uploadPDF(modifiedFile, pdfPath);
+        
+        // Update document with new fields
+        await updateDocument(currentDocument.id, {
+          fieldDefinitions: createdFields,
+        });
+      } catch (error) {
+        console.error('Error saving modified PDF:', error);
+      }
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -406,6 +452,32 @@ export default function HomePage() {
                   setViewMode('list');
                 }}
               />
+              
+              {/* Create Fields Button - shown when PDF is selected but no fields detected */}
+              {selectedFile && fields.length === 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6 p-4 bg-gray-800 rounded-lg border border-gray-700"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-white font-medium mb-1">No form fields detected</h3>
+                      <p className="text-sm text-gray-400">
+                        This PDF doesn't have form fields. Create them by dragging and dropping field types onto the document.
+                      </p>
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowFieldCreator(true)}
+                      className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg font-medium transition-colors"
+                    >
+                      Create Fields
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
             </motion.div>
           )}
 
@@ -523,6 +595,15 @@ export default function HomePage() {
             setShowPDFEditor(false);
             setHighlightFieldName(null);
           }}
+        />
+      )}
+
+      {/* PDF Field Creator Modal */}
+      {showFieldCreator && selectedFile && (
+        <PDFFieldCreator
+          pdfFile={selectedFile}
+          onFieldsCreated={handleFieldsCreated}
+          onClose={() => setShowFieldCreator(false)}
         />
       )}
     </div>
