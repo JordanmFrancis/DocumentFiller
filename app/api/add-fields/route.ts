@@ -199,13 +199,13 @@ export async function POST(request: NextRequest) {
     const modifiedPdfBytes = await pdfDoc.save();
 
     // Convert Uint8Array to ArrayBuffer for NextResponse
-    const arrayBuffer = modifiedPdfBytes.buffer.slice(
+    const responseArrayBuffer = modifiedPdfBytes.buffer.slice(
       modifiedPdfBytes.byteOffset,
       modifiedPdfBytes.byteOffset + modifiedPdfBytes.byteLength
     );
 
     // Return the modified PDF
-    return new NextResponse(arrayBuffer, {
+    return new NextResponse(responseArrayBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'attachment; filename="document-with-fields.pdf"',
