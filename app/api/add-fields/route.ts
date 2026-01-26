@@ -199,10 +199,9 @@ export async function POST(request: NextRequest) {
     const modifiedPdfBytes = await pdfDoc.save();
 
     // Convert Uint8Array to ArrayBuffer for NextResponse
-    const responseArrayBuffer = modifiedPdfBytes.buffer.slice(
-      modifiedPdfBytes.byteOffset,
-      modifiedPdfBytes.byteOffset + modifiedPdfBytes.byteLength
-    );
+    // Create a new ArrayBuffer to avoid SharedArrayBuffer issues
+    const responseArrayBuffer = new ArrayBuffer(modifiedPdfBytes.length);
+    new Uint8Array(responseArrayBuffer).set(modifiedPdfBytes);
 
     // Return the modified PDF
     return new NextResponse(responseArrayBuffer, {
