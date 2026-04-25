@@ -19,11 +19,8 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-paper">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-2 border-ink border-t-transparent mx-auto mb-4"></div>
-          <p className="font-marker text-ink text-lg">Loading…</p>
-          <p className="font-cursive text-sm text-ink-soft mt-2">
-            if this takes too long, check the browser console
-          </p>
+          <div className="animate-spin rounded-full h-9 w-9 border-2 border-accent border-t-transparent mx-auto mb-3"></div>
+          <p className="text-ink-soft text-[14px]">Loading…</p>
         </div>
       </div>
     );

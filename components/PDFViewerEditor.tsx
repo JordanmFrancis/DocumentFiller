@@ -528,87 +528,79 @@ export default function PDFViewerEditor({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm flex items-center justify-center p-4"
+        className="fixed inset-0 z-50 bg-ink/55 backdrop-blur-sm flex items-center justify-center p-4"
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.95, opacity: 0, rotate: -1 }}
-          animate={{ scale: 1, opacity: 1, rotate: 0 }}
-          exit={{ scale: 0.95, opacity: 0 }}
+          initial={{ scale: 0.97, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.97, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-paper border-2 border-ink rounded-lg shadow-rough-xl w-full max-w-7xl h-[92vh] flex flex-col relative"
+          className="bg-paper-card border border-rule rounded-xl shadow-2xl w-full max-w-[1400px] h-[92vh] flex flex-col overflow-hidden"
         >
-          {/* Tape on top */}
-          <div className="tape" style={{ top: '-12px', left: '50%', marginLeft: '-35px', zIndex: 10 }} />
-
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b-2 border-ink bg-paper">
-            <div className="flex items-center gap-4 flex-wrap">
-              <h2 className="font-marker text-xl text-ink squig">Edit Field Labels</h2>
-              <span className="font-cursive text-base text-ink-soft">
-                {fields.length} total &middot; {fieldsWithPosition.length} on page {currentPage}
+          <div className="flex items-center justify-between px-5 h-14 hairline bg-paper-card shrink-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="font-serif text-[17px] text-ink leading-none">Edit field labels</h2>
+              <span className="text-[12.5px] text-ink-faint">
+                {fields.length} total · {fieldsWithPosition.length} on page {currentPage}
               </span>
               {fieldsWithPosition.length === 0 && (
-                <span className="stamp text-margin-red">⚠ no positions</span>
+                <span className="text-[12px] text-danger">No positions</span>
               )}
               {fieldsWithPosition.length > 0 && (
-                <span className="font-typewriter text-[10px] text-ink-faint uppercase">
-                  drag to nudge &middot; ctrl+wheel to scale
+                <span className="eyebrow !text-[10.5px] !tracking-[0.08em]">
+                  Drag to nudge · ⌃+wheel to scale
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* Page Navigation */}
               {numPages > 1 && (
-                <div className="flex items-center gap-1 rough-sm px-2 py-1 bg-white">
+                <div className="surface flex items-center gap-1 px-1.5 py-1">
                   <button
                     onClick={handlePrevPage}
                     disabled={currentPage === 1}
-                    className="px-2 py-0.5 hover:bg-accent-yellow/40 rounded font-marker text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="p-1 hover:bg-paper-edge rounded text-ink disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ←
                   </button>
-                  <span className="font-marker text-ink text-sm min-w-[80px] text-center">
-                    Page {currentPage} / {numPages}
+                  <span className="text-[12.5px] text-ink min-w-[72px] text-center">
+                    Page {currentPage}/{numPages}
                   </span>
                   <button
                     onClick={handleNextPage}
                     disabled={currentPage === numPages}
-                    className="px-2 py-0.5 hover:bg-accent-yellow/40 rounded font-marker text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="p-1 hover:bg-paper-edge rounded text-ink disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     →
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-1 rough-sm px-2 py-1 bg-white">
+              <div className="surface flex items-center gap-1 px-1.5 py-1">
                 <button
                   onClick={() => handleZoom(-0.1)}
-                  className="p-1 hover:bg-accent-yellow/40 rounded text-ink"
+                  className="p-1 hover:bg-paper-edge rounded text-ink"
                 >
-                  <ZoomOut className="w-4 h-4" />
+                  <ZoomOut className="w-3.5 h-3.5" />
                 </button>
-                <span className="font-marker text-ink text-sm min-w-[44px] text-center">
+                <span className="text-[12.5px] text-ink min-w-[40px] text-center">
                   {Math.round(scale * 100)}%
                 </span>
                 <button
                   onClick={() => handleZoom(0.1)}
-                  className="p-1 hover:bg-accent-yellow/40 rounded text-ink"
+                  className="p-1 hover:bg-paper-edge rounded text-ink"
                 >
-                  <ZoomIn className="w-4 h-4" />
+                  <ZoomIn className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <button
-                onClick={onClose}
-                className="btn-rough"
-                title="Close"
-              >
+              <button onClick={onClose} className="btn btn-ghost btn-sm" title="Close">
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* PDF Canvas Viewer with Overlays */}
-          <div className="flex-1 bg-paper p-4 overflow-auto">
+          <div className="flex-1 bg-paper p-6 overflow-auto">
             {pdfDoc ? (
               <div 
                 ref={containerRef}
@@ -618,7 +610,7 @@ export default function PDFViewerEditor({
                 <div className="relative inline-block">
                   <canvas
                     ref={canvasRef}
-                    className="border-2 border-ink rounded-md shadow-rough-lg bg-white"
+                    className="bg-white rounded-md shadow-lg ring-1 ring-rule"
                   />
                   
                   {/* Overlay Container - positioned absolutely over canvas */}
@@ -657,18 +649,19 @@ export default function PDFViewerEditor({
                           style={{
                             ...style,
                             backgroundColor: isHighlighted
-                              ? 'rgba(109, 224, 182, 0.55)' // Mint for highlighted
+                              ? 'rgba(45, 74, 58, 0.28)'
                               : isHovered || isEditing
-                              ? 'rgba(255, 222, 89, 0.5)'
-                              : 'rgba(255, 222, 89, 0.22)',
+                              ? 'rgba(45, 74, 58, 0.18)'
+                              : 'rgba(45, 74, 58, 0.08)',
                             border: isHighlighted
-                              ? '2.5px solid #1a1a1a'
+                              ? '2px solid #2d4a3a'
                               : isHovered || isEditing
-                              ? '2px solid #1a1a1a'
-                              : '2px dashed rgba(26,26,26,0.7)',
+                              ? '1.5px solid #2d4a3a'
+                              : '1.5px dashed rgba(45, 74, 58, 0.55)',
                             pointerEvents: 'auto',
-                            boxShadow: isHighlighted ? '3px 3px 0 #1a1a1a' : 'none',
+                            boxShadow: isHighlighted ? '0 0 0 3px rgba(45, 74, 58, 0.18)' : 'none',
                             zIndex: isHighlighted ? 20 : 10,
+                            borderRadius: '3px',
                           }}
                           onMouseEnter={() => setHoveredField(field.name)}
                           onMouseLeave={() => setHoveredField(null)}
@@ -677,8 +670,8 @@ export default function PDFViewerEditor({
                           title={field.label || field.name}
                         >
                           {isEditing && (
-                            <div className="absolute -top-24 left-0 bg-white border-2 border-ink rounded-md p-3 shadow-rough z-20 min-w-[260px]">
-                              <div className="font-marker text-xs text-ink-soft uppercase tracking-wide mb-2">edit field label</div>
+                            <div className="absolute -top-[88px] left-0 surface-elev p-3 z-20 min-w-[270px]">
+                              <div className="eyebrow !text-[10px] mb-2">Field label</div>
                               <input
                                 type="text"
                                 value={editValue}
@@ -688,9 +681,9 @@ export default function PDFViewerEditor({
                                   if (e.key === 'Escape') handleCancelEdit();
                                 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="input-rough mb-2"
+                                className="input mb-2 py-1.5"
                                 autoFocus
-                                placeholder="Enter label..."
+                                placeholder="Enter label…"
                               />
                               <div className="flex items-center gap-2">
                                 <button
@@ -698,7 +691,7 @@ export default function PDFViewerEditor({
                                     e.stopPropagation();
                                     handleSaveEdit();
                                   }}
-                                  className="btn-rough primary flex-1 justify-center"
+                                  className="btn btn-primary btn-sm flex-1 justify-center"
                                 >
                                   Save
                                 </button>
@@ -707,7 +700,7 @@ export default function PDFViewerEditor({
                                     e.stopPropagation();
                                     handleCancelEdit();
                                   }}
-                                  className="btn-rough"
+                                  className="btn btn-outline btn-sm"
                                 >
                                   Cancel
                                 </button>
@@ -715,9 +708,9 @@ export default function PDFViewerEditor({
                             </div>
                           )}
                           {(isHovered || isHighlighted) && !isEditing && (
-                            <div className={`absolute -top-8 left-0 bg-ink rounded px-2 py-1 font-marker text-xs text-white whitespace-nowrap shadow-rough z-20 ${isHighlighted ? 'bg-accent-mint text-ink' : ''}`}>
+                            <div className="absolute -top-7 left-0 bg-ink text-paper-card rounded px-2 py-1 text-[11.5px] font-medium whitespace-nowrap shadow-md z-20">
                               {field.label || field.name}
-                              {isHighlighted && <span className="ml-2">●</span>}
+                              {isHighlighted && <span className="ml-1.5 text-accent-line">●</span>}
                             </div>
                           )}
                         </div>
@@ -730,8 +723,8 @@ export default function PDFViewerEditor({
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-ink border-t-transparent mx-auto mb-3"></div>
-                  <p className="font-marker text-ink">loading PDF…</p>
+                  <div className="animate-spin rounded-full h-9 w-9 border-2 border-accent border-t-transparent mx-auto mb-3"></div>
+                  <p className="text-ink-soft text-[13px]">Loading PDF…</p>
                 </div>
               </div>
             )}

@@ -5,15 +5,25 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/components/Auth/AuthProvider';
 import Header from '@/components/Layout/Header';
-import Sidebar from '@/components/Layout/Sidebar';
 import PDFUploader from '@/components/PDFUploader';
 import FormFieldRenderer from '@/components/FormFieldRenderer';
 import DocumentList from '@/components/DocumentList';
+import PDFPreview from '@/components/PDFPreview';
 import { PDFField, PDFDocument, FormValues } from '@/types/pdf';
 import { fillPDF } from '@/lib/pdfFiller';
 import { uploadPDF, downloadPDF } from '@/lib/firestore/storage';
 import { saveDocument, getUserDocuments, deleteDocument, updateDocument } from '@/lib/firestore/documents';
-import { Download, Save, Loader2, Eye, Sparkles, PenLine } from 'lucide-react';
+import {
+  Download,
+  Save,
+  Loader2,
+  Eye,
+  Sparkles,
+  PenLine,
+  ArrowLeft,
+  ArrowUp,
+  Plus,
+} from 'lucide-react';
 import PDFViewerEditor from '@/components/PDFViewerEditor';
 import PDFFieldCreator from '@/components/PDFFieldCreator';
 import OnboardingSlideshow from '@/components/Onboarding/OnboardingSlideshow';
@@ -39,6 +49,7 @@ export default function HomePage() {
   const [highlightFieldName, setHighlightFieldName] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [detectionStage, setDetectionStage] = useState<'acroform' | 'visual' | 'ai-vision' | null>(null);
+  const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -51,9 +62,7 @@ export default function HomePage() {
       loadDocuments();
       const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
       if (!hasSeenOnboarding) {
-        setTimeout(() => {
-          setShowOnboarding(true);
-        }, 500);
+        setTimeout(() => setShowOnboarding(true), 500);
       }
     }
   }, [user]);
@@ -71,8 +80,6 @@ export default function HomePage() {
     }
   };
 
-  // Materialize an inferred-field list (from vector or AI vision detection)
-  // into real AcroForm widgets via /api/add-fields, then update state.
   const materializeInferredFields = async (
     file: File,
     inferredFields: PDFField[]
@@ -86,9 +93,7 @@ export default function HomePage() {
       body: addFieldsForm,
     });
 
-    if (!addResponse.ok) {
-      throw new Error('Failed to materialize inferred fields');
-    }
+    if (!addResponse.ok) throw new Error('Failed to materialize inferred fields');
 
     const modifiedPdfBytes = new Uint8Array(await addResponse.arrayBuffer());
     const pdfArrayBuffer = new ArrayBuffer(modifiedPdfBytes.length);
@@ -117,28 +122,26 @@ export default function HomePage() {
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to detect fields');
-      }
+      if (!response.ok) throw new Error('Failed to detect fields');
 
       const data = await response.json();
       setFormValues({});
 
-      // Tier 1: real AcroForm widgets baked into the PDF
+      // Tier 1: AcroForm widgets
       if (data.fields.length > 0) {
         setFields(data.fields);
         setViewMode('form');
         return;
       }
 
-      // Tier 2: vector-rectangle scan (free, exact, fast)
+      // Tier 2: vector-rectangle scan
       console.log('No AcroForm fields found, running visual rectangle detection…');
       setDetectionStage('visual');
       let visualFields: PDFField[] = [];
       try {
         const visualResult = await detectVisualFields(file);
         visualFields = visualResult.fields;
-        console.log(`Visual detection found ${visualFields.length} candidate boxes:`, visualResult.pageCounts);
+        console.log(`Visual detection found ${visualFields.length} candidate boxes`);
       } catch (visualError) {
         console.error('Visual detection failed:', visualError);
       }
@@ -148,8 +151,7 @@ export default function HomePage() {
         return;
       }
 
-      // Tier 3: AI vision (gpt-4o-mini) — slower and costs money but
-      // handles forms with underlines, scanned-style PDFs, and labels.
+      // Tier 3: AI vision
       console.log('No vector boxes found, falling back to AI vision detection…');
       setDetectionStage('ai-vision');
       let aiFields: PDFField[] = [];
@@ -158,8 +160,6 @@ export default function HomePage() {
         const aiResult = await detectAIVisionFields(file);
         aiFields = aiResult.fields;
         aiError = aiResult.error;
-        console.log(`AI vision found ${aiFields.length} candidate fields:`, aiResult.pageCounts);
-        if (aiError) console.warn('AI vision returned error:', aiError);
       } catch (visionError) {
         console.error('AI vision detection failed:', visionError);
       }
@@ -169,15 +169,13 @@ export default function HomePage() {
         return;
       }
 
-      // All tiers exhausted — offer the manual creator
+      // All tiers exhausted
       setViewMode('upload');
       const message = aiError
-        ? `No form fields detected. AI vision: ${aiError}\n\nWould you like to create fields manually by dragging and dropping them on the document?`
-        : 'No form fields detected in this PDF. Would you like to create fields by dragging and dropping them on the document?';
+        ? `No form fields detected. AI vision: ${aiError}\n\nWould you like to create fields manually?`
+        : 'No form fields detected. Would you like to create fields manually?';
       const shouldCreateFields = confirm(message);
-      if (shouldCreateFields) {
-        setShowFieldCreator(true);
-      }
+      if (shouldCreateFields) setShowFieldCreator(true);
     } catch (error) {
       console.error('Error detecting fields:', error);
       alert('Failed to detect fields in PDF');
@@ -190,6 +188,7 @@ export default function HomePage() {
 
   const handleFormChange = (fieldName: string, value: any) => {
     setFormValues((prev) => ({ ...prev, [fieldName]: value }));
+    setAutoSavedAt(new Date());
   };
 
   const handleLabelChange = (fieldName: string, newLabel: string) => {
@@ -199,9 +198,7 @@ export default function HomePage() {
     setFields(updatedFields);
 
     if (currentDocument) {
-      updateDocument(currentDocument.id, {
-        fieldDefinitions: updatedFields,
-      }).catch((error) => {
+      updateDocument(currentDocument.id, { fieldDefinitions: updatedFields }).catch((error) => {
         console.error('Error updating document fields:', error);
       });
     }
@@ -213,7 +210,6 @@ export default function HomePage() {
     try {
       setProcessing(true);
       const documentId = currentDocument?.id || `doc_${Date.now()}`;
-
       const pdfPath = `users/${user.uid}/documents/${documentId}/original.pdf`;
       const pdfUrl = await uploadPDF(selectedFile, pdfPath);
 
@@ -244,7 +240,6 @@ export default function HomePage() {
       setProcessing(true);
       const arrayBuffer = await selectedFile.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-
       const filledPdfBytes = await fillPDF(uint8Array, formValues);
 
       const pdfArrayBuffer = new ArrayBuffer(filledPdfBytes.length);
@@ -283,7 +278,6 @@ export default function HomePage() {
       try {
         const url = new URL(doc.originalPdfUrl);
         const pathMatch = url.pathname.match(/\/o\/(.+?)(\?|$)/);
-
         if (pathMatch) {
           const storagePath = decodeURIComponent(pathMatch[1]);
           const blob = await downloadPDF(storagePath);
@@ -292,10 +286,7 @@ export default function HomePage() {
         }
       } catch (urlError) {
         console.warn('Could not parse URL, trying direct fetch:', urlError);
-        const response = await fetch(doc.originalPdfUrl, {
-          mode: 'cors',
-          credentials: 'omit',
-        });
+        const response = await fetch(doc.originalPdfUrl, { mode: 'cors', credentials: 'omit' });
         if (response.ok) {
           const blob = await response.blob();
           file = new File([blob], doc.name, { type: 'application/pdf' });
@@ -303,46 +294,32 @@ export default function HomePage() {
         }
       }
 
-      const fieldsHavePositions = doc.fieldDefinitions.some(f => f.position);
+      const fieldsHavePositions = doc.fieldDefinitions.some((f) => f.position);
 
       if (!fieldsHavePositions && file) {
-        console.log('Re-detecting field positions for existing document...');
         const formData = new FormData();
         formData.append('file', file);
         formData.append('useAI', 'false');
+        const response = await fetch('/api/detect-fields', { method: 'POST', body: formData });
 
-        const response = await fetch('/api/detect-fields', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to re-detect positions');
-        }
-
-        const data = await response.json();
-        const detectedFields = data.fields;
-
-        const mergedFields = doc.fieldDefinitions.map(savedField => {
-          const detectedField = detectedFields.find((f: PDFField) => f.name === savedField.name);
-          if (detectedField && detectedField.position) {
-            return {
-              ...savedField,
-              position: detectedField.position,
-              page: detectedField.page,
-            };
-          }
-          return savedField;
-        });
-
-        setFields(mergedFields);
-
-        if (user) {
-          updateDocument(doc.id, {
-            fieldDefinitions: mergedFields,
-          }).catch((error) => {
-            console.error('Error updating document with positions:', error);
+        if (response.ok) {
+          const data = await response.json();
+          const detectedFields = data.fields;
+          const mergedFields = doc.fieldDefinitions.map((savedField) => {
+            const detectedField = detectedFields.find((f: PDFField) => f.name === savedField.name);
+            if (detectedField && detectedField.position) {
+              return { ...savedField, position: detectedField.position, page: detectedField.page };
+            }
+            return savedField;
           });
+          setFields(mergedFields);
+          if (user) {
+            updateDocument(doc.id, { fieldDefinitions: mergedFields }).catch((error) => {
+              console.error('Error updating document with positions:', error);
+            });
+          }
+        } else {
+          setFields(doc.fieldDefinitions);
         }
       } else {
         setFields(doc.fieldDefinitions);
@@ -360,7 +337,6 @@ export default function HomePage() {
 
   const handleDeleteDocument = async (documentId: string) => {
     if (!confirm('Are you sure you want to delete this document?')) return;
-
     try {
       await deleteDocument(documentId);
       await loadDocuments();
@@ -384,7 +360,7 @@ export default function HomePage() {
   };
 
   const handleFieldClick = (fieldName: string) => {
-    const field = fields.find(f => f.name === fieldName);
+    const field = fields.find((f) => f.name === fieldName);
     if (field && field.position) {
       setHighlightFieldName(fieldName);
       setShowPDFEditor(true);
@@ -395,7 +371,6 @@ export default function HomePage() {
     const pdfArrayBuffer = new ArrayBuffer(modifiedPdfBytes.length);
     new Uint8Array(pdfArrayBuffer).set(modifiedPdfBytes);
     const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
-
     const modifiedFile = new File([blob], selectedFile?.name || 'document.pdf', { type: 'application/pdf' });
 
     setFields(createdFields);
@@ -414,279 +389,315 @@ export default function HomePage() {
     }
   };
 
+  // ────────────────────────────────────────────────────────
+  // Auth gates
+  // ────────────────────────────────────────────────────────
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-paper">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-2 border-ink border-t-transparent mx-auto mb-4"></div>
-          <p className="font-marker text-ink text-lg">initializing…</p>
+          <div className="animate-spin rounded-full h-9 w-9 border-2 border-accent border-t-transparent mx-auto mb-3" />
+          <p className="text-ink-soft text-[14px]">Initializing…</p>
         </div>
       </div>
     );
   }
+  if (!user) return null;
 
-  if (!user) {
-    return null;
-  }
+  // ────────────────────────────────────────────────────────
+  // Computed bits used in form view
+  // ────────────────────────────────────────────────────────
+  const filledFieldCount = fields.filter((f) => {
+    const v = formValues[f.name];
+    return v !== undefined && v !== null && v !== '' && v !== false;
+  }).length;
+  const totalFields = fields.length;
+  const filename = currentDocument?.name || selectedFile?.name || 'Untitled.pdf';
 
+  // ────────────────────────────────────────────────────────
+  // Render
+  // ────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-paper text-ink">
       <Header onShowTutorial={() => setShowOnboarding(true)} />
-      <div className="flex">
-        <Sidebar onNewDocument={handleNewDocument} />
-        <main className="flex-1 p-8 min-h-[calc(100vh-4rem)]">
-          {viewMode === 'list' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="max-w-7xl mx-auto"
-            >
-              <div className="mb-8 flex items-end justify-between flex-wrap gap-4">
-                <div>
-                  <h2 className="font-marker text-3xl text-ink squig inline-block">
-                    Your Documents
-                  </h2>
-                  <p className="font-cursive text-lg text-ink-soft mt-3">
-                    everything you've uploaded — pick one to fill it out again
-                  </p>
-                </div>
-                <span className="font-typewriter text-xs text-ink-faint uppercase tracking-widest">
-                  {documents.length} item{documents.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <DocumentList
-                documents={documents}
-                onSelect={handleDocumentSelect}
-                onDelete={handleDeleteDocument}
-                loading={loadingDocuments}
-              />
-            </motion.div>
-          )}
 
-          {viewMode === 'upload' && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="max-w-3xl mx-auto"
-            >
-              <div className="mb-6">
-                <h2 className="font-marker text-3xl text-ink squig inline-block">
-                  Upload a PDF
+      {/* Dashboard / list view */}
+      {viewMode === 'list' && (
+        <main className="max-w-[1200px] mx-auto px-8 py-12">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
+              <div>
+                <div className="eyebrow mb-2">Your documents</div>
+                <h2 className="font-serif text-[34px] text-ink leading-tight">
+                  {documents.length} {documents.length === 1 ? 'document' : 'documents'}
                 </h2>
-                <p className="font-cursive text-lg text-ink-soft mt-3">
-                  drop a file in, or browse from your computer
-                </p>
               </div>
-
-              {/* AI Labeling Toggle */}
-              <div className="mb-6 rough p-4 bg-white">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={useAILabeling}
-                    onChange={(e) => setUseAILabeling(e.target.checked)}
-                    className="checkbox-hand mt-0.5"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-ink" />
-                      <span className="font-marker text-base text-ink">
-                        Use AI to generate field labels
-                      </span>
-                    </div>
-                    <p className="font-cursive text-base text-ink-soft mt-1">
-                      automatically generate friendly labels from PDF context.
-                      requires an OpenAI API key configured.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              <PDFUploader
-                onFileSelect={handleFileSelect}
-                selectedFile={selectedFile}
-                onRemove={() => {
-                  setSelectedFile(null);
-                  setViewMode('list');
-                }}
-              />
-
-              {/* Create Fields prompt */}
-              {selectedFile && fields.length === 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-6 rough p-5 bg-paper-legalpad"
-                >
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-marker text-lg text-ink mb-1">
-                        No form fields detected
-                      </h3>
-                      <p className="font-cursive text-base text-ink-soft">
-                        this PDF has no fillable fields. create them by dragging field types onto the document.
-                      </p>
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05, rotate: -1 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setShowFieldCreator(true)}
-                      className="btn-rough primary"
-                    >
-                      <PenLine className="w-4 h-4" />
-                      Create Fields
-                    </motion.button>
-                  </div>
-                </motion.div>
-              )}
-            </motion.div>
-          )}
-
-          {viewMode === 'loading' && (
-            <div className="flex items-center justify-center min-h-[400px]">
-              <div className="text-center max-w-md">
-                <div className="relative inline-block mb-4">
-                  <Loader2 className="w-14 h-14 text-ink animate-spin mx-auto" />
-                </div>
-                <p className="font-marker text-xl text-ink mb-2">
-                  {detectionStage === 'visual'
-                    ? 'scanning visual boxes…'
-                    : detectionStage === 'ai-vision'
-                    ? 'asking AI to find fields…'
-                    : useAILabeling
-                    ? 'detecting fields & generating AI labels…'
-                    : 'detecting form fields…'}
-                </p>
-                {/* Tier indicator — three pills, current one highlighted */}
-                <div className="flex items-center justify-center gap-2 mt-3">
-                  {(['acroform', 'visual', 'ai-vision'] as const).map((stage) => {
-                    const labels = {
-                      acroform: '1. AcroForm',
-                      visual: '2. Vector boxes',
-                      'ai-vision': '3. AI vision',
-                    };
-                    const stages = ['acroform', 'visual', 'ai-vision'] as const;
-                    const currentIdx = detectionStage ? stages.indexOf(detectionStage) : 0;
-                    const myIdx = stages.indexOf(stage);
-                    const isCurrent = stage === detectionStage;
-                    const isPast = myIdx < currentIdx;
-                    return (
-                      <span
-                        key={stage}
-                        className={`pill-hand text-[11px] ${
-                          isCurrent
-                            ? 'bg-accent-yellow border-ink'
-                            : isPast
-                            ? 'bg-accent-mint/40 border-ink'
-                            : 'bg-white opacity-50'
-                        }`}
-                      >
-                        {labels[stage]}
-                      </span>
-                    );
-                  })}
-                </div>
-                <p className="font-cursive text-base text-ink-soft mt-4">
-                  {detectionStage === 'ai-vision'
-                    ? 'this may take 10–20 seconds'
-                    : 'falling back through detection tiers…'}
-                </p>
+              <div className="flex items-center gap-2">
+                <button onClick={handleNewDocument} className="btn btn-outline">
+                  <ArrowUp className="w-3.5 h-3.5" />
+                  Import
+                </button>
+                <button onClick={handleNewDocument} className="btn btn-dark">
+                  <Plus className="w-3.5 h-3.5" />
+                  New document
+                </button>
               </div>
             </div>
-          )}
+            <DocumentList
+              documents={documents}
+              onSelect={handleDocumentSelect}
+              onDelete={handleDeleteDocument}
+              loading={loadingDocuments}
+            />
+          </motion.div>
+        </main>
+      )}
 
-          {viewMode === 'form' && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="max-w-3xl mx-auto"
-            >
-              <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
-                <div className="min-w-0 flex-1">
-                  <h2 className="font-marker text-2xl text-ink leading-tight squig inline-block">
-                    {currentDocument?.name || selectedFile?.name || 'Fill Form'}
-                  </h2>
-                  <p className="font-cursive text-base text-ink-soft mt-3">
-                    {fields.length} field{fields.length !== 1 ? 's' : ''} detected — fill them in below
+      {/* Upload / first-run view */}
+      {viewMode === 'upload' && (
+        <main className="max-w-[640px] mx-auto px-8 py-16">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="eyebrow mb-3">Get started</div>
+            <h1 className="font-serif text-[44px] leading-[1.05] text-ink mb-3">
+              Any PDF, filled in <em className="font-serif italic">minutes</em>.
+            </h1>
+            <p className="text-ink-soft text-[15px] leading-relaxed mb-8 max-w-[500px]">
+              Drop a PDF. Counsel detects the fields (or lets you draw your own), then gives you a clean form. Fill once, download the finished document.
+            </p>
+
+            <PDFUploader
+              onFileSelect={handleFileSelect}
+              selectedFile={selectedFile}
+              onRemove={() => {
+                setSelectedFile(null);
+                setViewMode('list');
+              }}
+            />
+
+            {/* AI Labeling toggle */}
+            <label className="flex items-start gap-3 mt-5 cursor-pointer surface px-4 py-3.5">
+              <input
+                type="checkbox"
+                checked={useAILabeling}
+                onChange={(e) => setUseAILabeling(e.target.checked)}
+                className="checkbox mt-0.5"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-accent" />
+                  <span className="text-[13.5px] font-medium text-ink">
+                    Use AI to label fields
+                  </span>
+                </div>
+                <p className="text-[12.5px] text-ink-faint mt-1">
+                  Reads context around each field and names them in plain language. Adds a few seconds.
+                </p>
+              </div>
+            </label>
+
+            {/* Create-fields prompt when no fields detected */}
+            {selectedFile && fields.length === 0 && !processing && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-5 surface p-4 flex items-center justify-between gap-4 flex-wrap"
+              >
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[14px] font-medium text-ink mb-0.5">No form fields detected</h3>
+                  <p className="text-[12.5px] text-ink-faint">
+                    Create them by dragging field types onto the document.
                   </p>
                 </div>
-                <div className="flex gap-2 flex-wrap">
-                  {(selectedFile || currentDocument) && (
-                    <motion.button
-                      whileHover={{ scale: 1.05, rotate: -1 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setShowPDFEditor(true)}
-                      className="btn-rough"
-                      title="Edit field labels in PDF viewer"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Edit Labels
-                    </motion.button>
-                  )}
-                  {selectedFile && (
-                    <motion.button
-                      whileHover={{ scale: 1.05, rotate: 1 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setShowFieldCreator(true)}
-                      className="btn-rough"
-                      title="Add or edit fields"
-                    >
-                      <PenLine className="w-4 h-4" />
-                      Add Fields
-                    </motion.button>
-                  )}
-                  {!currentDocument && (
-                    <motion.button
-                      whileHover={{ scale: 1.05, rotate: -1 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleSaveDocument}
-                      disabled={processing}
-                      className="btn-rough"
-                    >
-                      <Save className="w-4 h-4" />
-                      Save
-                    </motion.button>
-                  )}
-                  <motion.button
-                    whileHover={{ scale: 1.05, rotate: 1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleFillPDF}
-                    disabled={processing || fields.length === 0}
-                    className="btn-rough primary"
-                  >
-                    {processing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    Generate PDF
-                  </motion.button>
+                <button onClick={() => setShowFieldCreator(true)} className="btn btn-primary btn-sm">
+                  <PenLine className="w-3.5 h-3.5" />
+                  Create fields
+                </button>
+              </motion.div>
+            )}
+
+            {/* Steps */}
+            <div className="flex items-center gap-6 mt-10 flex-wrap">
+              {(['Upload', 'Detect', 'Fill', 'Download'] as const).map((label, i) => (
+                <div key={label} className="step" data-active={i === 0}>
+                  <span className="step-num">{i + 1}</span>
+                  {label}
                 </div>
-              </div>
-
-              {/* Notebook-style form sheet */}
-              <div className="rough p-6 bg-white relative">
-                <div className="tape" style={{ top: '-10px', left: '24px' }} />
-                <div className="tape tape-blue" style={{ top: '-10px', right: '24px', transform: 'rotate(4deg)' }} />
-                <FormFieldRenderer
-                  fields={fields}
-                  values={formValues}
-                  onChange={handleFormChange}
-                  onLabelChange={handleLabelChange}
-                  onFieldClick={handleFieldClick}
-                  editableLabels={true}
-                />
-              </div>
-            </motion.div>
-          )}
+              ))}
+            </div>
+          </motion.div>
         </main>
-      </div>
+      )}
 
-      {/* Onboarding Slideshow */}
+      {/* Loading view */}
+      {viewMode === 'loading' && (
+        <main className="max-w-[1200px] mx-auto px-8 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center max-w-md">
+            <Loader2 className="w-9 h-9 text-accent animate-spin mx-auto mb-4" />
+            <p className="font-serif text-[20px] text-ink mb-1">
+              {detectionStage === 'visual'
+                ? 'Scanning visual boxes…'
+                : detectionStage === 'ai-vision'
+                ? 'Asking AI to find fields…'
+                : useAILabeling
+                ? 'Detecting fields & generating labels…'
+                : 'Detecting form fields…'}
+            </p>
+            <p className="text-[13px] text-ink-faint mb-5">
+              {detectionStage === 'ai-vision'
+                ? 'This may take 10–20 seconds'
+                : 'Falling back through detection tiers'}
+            </p>
+
+            {/* Tier indicator */}
+            <div className="flex items-center justify-center gap-1.5">
+              {(['acroform', 'visual', 'ai-vision'] as const).map((stage) => {
+                const labels = {
+                  acroform: '1 · AcroForm',
+                  visual: '2 · Vector',
+                  'ai-vision': '3 · AI vision',
+                };
+                const stages = ['acroform', 'visual', 'ai-vision'] as const;
+                const currentIdx = detectionStage ? stages.indexOf(detectionStage) : 0;
+                const myIdx = stages.indexOf(stage);
+                const isCurrent = stage === detectionStage;
+                const isPast = myIdx < currentIdx;
+                return (
+                  <span
+                    key={stage}
+                    className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors ${
+                      isCurrent
+                        ? 'bg-accent text-paper-card border-accent'
+                        : isPast
+                        ? 'bg-accent-tint text-accent border-accent-line'
+                        : 'bg-paper-elev text-ink-faint border-rule'
+                    }`}
+                  >
+                    {labels[stage]}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </main>
+      )}
+
+      {/* Form / fill view — split pane */}
+      {viewMode === 'form' && (
+        <motion.main
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="grid grid-cols-1 lg:grid-cols-[minmax(420px,560px)_1fr] gap-0 max-w-[1440px] mx-auto"
+          style={{ minHeight: 'calc(100vh - 56px)' }}
+        >
+          {/* LEFT: form */}
+          <section className="border-r border-rule flex flex-col">
+            {/* Form header */}
+            <div className="px-7 pt-6 pb-5 hairline">
+              <button
+                onClick={() => setViewMode('list')}
+                className="text-[12.5px] text-ink-faint hover:text-ink flex items-center gap-1 mb-3 transition-colors"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                Documents
+              </button>
+              <h1 className="font-serif text-[22px] text-ink leading-tight mb-3">{filename}</h1>
+              <div className="flex items-center gap-2 text-[12.5px] text-ink-faint mb-2">
+                <span>{totalFields} fields</span>
+                <span>·</span>
+                <span>
+                  {autoSavedAt
+                    ? `last saved ${formatJustNow(autoSavedAt)}`
+                    : 'not saved yet'}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="progress flex-1">
+                  <span style={{ width: `${totalFields ? (filledFieldCount / totalFields) * 100 : 0}%` }} />
+                </div>
+                <span className="text-[12px] text-ink-faint tabular-nums">
+                  {filledFieldCount}/{totalFields}
+                </span>
+              </div>
+            </div>
+
+            {/* Form body */}
+            <div className="flex-1 overflow-y-auto px-7 py-6">
+              <FormFieldRenderer
+                fields={fields}
+                values={formValues}
+                onChange={handleFormChange}
+                onLabelChange={handleLabelChange}
+                onFieldClick={handleFieldClick}
+                editableLabels={true}
+              />
+            </div>
+
+            {/* Form footer */}
+            <div className="hairline-t px-7 py-4 flex items-center justify-between gap-3 bg-paper-card">
+              <div className="flex items-center gap-2 text-[12.5px] text-ink-faint">
+                {autoSavedAt ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                    auto-saved
+                  </>
+                ) : (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-ink-muted" />
+                    not yet auto-saved
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowPDFEditor(true)}
+                  className="btn btn-ghost btn-sm"
+                  title="Edit field labels visually"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Edit labels
+                </button>
+                {selectedFile && (
+                  <button
+                    onClick={() => setShowFieldCreator(true)}
+                    className="btn btn-ghost btn-sm"
+                    title="Add or edit fields"
+                  >
+                    <PenLine className="w-3.5 h-3.5" />
+                    Add fields
+                  </button>
+                )}
+                {!currentDocument && (
+                  <button onClick={handleSaveDocument} disabled={processing} className="btn btn-outline btn-sm">
+                    <Save className="w-3.5 h-3.5" />
+                    Save
+                  </button>
+                )}
+                <button
+                  onClick={handleFillPDF}
+                  disabled={processing || fields.length === 0}
+                  className="btn btn-primary btn-sm"
+                >
+                  {processing ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
+                  Download PDF
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* RIGHT: PDF preview */}
+          <section className="bg-paper-card hidden lg:flex flex-col">
+            <PDFPreview pdfFile={selectedFile} />
+          </section>
+        </motion.main>
+      )}
+
+      {/* Onboarding */}
       <AnimatePresence>
-        {showOnboarding && (
-          <OnboardingSlideshow onComplete={handleOnboardingComplete} />
-        )}
+        {showOnboarding && <OnboardingSlideshow onComplete={handleOnboardingComplete} />}
       </AnimatePresence>
 
       {/* PDF Viewer Editor Modal */}
@@ -698,9 +709,7 @@ export default function HomePage() {
           onFieldsChange={(updatedFields) => {
             setFields(updatedFields);
             if (currentDocument) {
-              updateDocument(currentDocument.id, {
-                fieldDefinitions: updatedFields,
-              }).catch((error) => {
+              updateDocument(currentDocument.id, { fieldDefinitions: updatedFields }).catch((error) => {
                 console.error('Error updating document fields:', error);
               });
             }
@@ -722,4 +731,14 @@ export default function HomePage() {
       )}
     </div>
   );
+}
+
+function formatJustNow(d: Date): string {
+  const diff = Date.now() - d.getTime();
+  const sec = Math.floor(diff / 1000);
+  if (sec < 5) return 'just now';
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
