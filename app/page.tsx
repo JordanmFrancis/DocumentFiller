@@ -17,6 +17,8 @@ import { Download, Save, Loader2, Eye, Sparkles, PenLine } from 'lucide-react';
 import PDFViewerEditor from '@/components/PDFViewerEditor';
 import PDFFieldCreator from '@/components/PDFFieldCreator';
 import OnboardingSlideshow from '@/components/Onboarding/OnboardingSlideshow';
+import { detectVisualFields } from '@/lib/visualFieldDetector';
+import { detectAIVisionFields } from '@/lib/aiVisualFieldDetector';
 
 type ViewMode = 'list' | 'upload' | 'form' | 'loading';
 
@@ -36,6 +38,7 @@ export default function HomePage() {
   const [useAILabeling, setUseAILabeling] = useState(false);
   const [highlightFieldName, setHighlightFieldName] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [detectionStage, setDetectionStage] = useState<'acroform' | 'visual' | 'ai-vision' | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -68,10 +71,41 @@ export default function HomePage() {
     }
   };
 
+  // Materialize an inferred-field list (from vector or AI vision detection)
+  // into real AcroForm widgets via /api/add-fields, then update state.
+  const materializeInferredFields = async (
+    file: File,
+    inferredFields: PDFField[]
+  ): Promise<void> => {
+    const addFieldsForm = new FormData();
+    addFieldsForm.append('file', file);
+    addFieldsForm.append('fields', JSON.stringify(inferredFields));
+
+    const addResponse = await fetch('/api/add-fields', {
+      method: 'POST',
+      body: addFieldsForm,
+    });
+
+    if (!addResponse.ok) {
+      throw new Error('Failed to materialize inferred fields');
+    }
+
+    const modifiedPdfBytes = new Uint8Array(await addResponse.arrayBuffer());
+    const pdfArrayBuffer = new ArrayBuffer(modifiedPdfBytes.length);
+    new Uint8Array(pdfArrayBuffer).set(modifiedPdfBytes);
+    const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
+    const modifiedFile = new File([blob], file.name, { type: 'application/pdf' });
+
+    setSelectedFile(modifiedFile);
+    setFields(inferredFields);
+    setViewMode('form');
+  };
+
   const handleFileSelect = async (file: File) => {
     setSelectedFile(file);
     setProcessing(true);
     setViewMode('loading');
+    setDetectionStage('acroform');
 
     try {
       const formData = new FormData();
@@ -88,19 +122,61 @@ export default function HomePage() {
       }
 
       const data = await response.json();
-      setFields(data.fields);
       setFormValues({});
 
-      if (data.fields.length === 0) {
-        setViewMode('upload');
-        const shouldCreateFields = confirm(
-          'No form fields detected in this PDF. Would you like to create fields by dragging and dropping them on the document?'
-        );
-        if (shouldCreateFields) {
-          setShowFieldCreator(true);
-        }
-      } else {
+      // Tier 1: real AcroForm widgets baked into the PDF
+      if (data.fields.length > 0) {
+        setFields(data.fields);
         setViewMode('form');
+        return;
+      }
+
+      // Tier 2: vector-rectangle scan (free, exact, fast)
+      console.log('No AcroForm fields found, running visual rectangle detection…');
+      setDetectionStage('visual');
+      let visualFields: PDFField[] = [];
+      try {
+        const visualResult = await detectVisualFields(file);
+        visualFields = visualResult.fields;
+        console.log(`Visual detection found ${visualFields.length} candidate boxes:`, visualResult.pageCounts);
+      } catch (visualError) {
+        console.error('Visual detection failed:', visualError);
+      }
+
+      if (visualFields.length > 0) {
+        await materializeInferredFields(file, visualFields);
+        return;
+      }
+
+      // Tier 3: AI vision (gpt-4o-mini) — slower and costs money but
+      // handles forms with underlines, scanned-style PDFs, and labels.
+      console.log('No vector boxes found, falling back to AI vision detection…');
+      setDetectionStage('ai-vision');
+      let aiFields: PDFField[] = [];
+      let aiError: string | undefined;
+      try {
+        const aiResult = await detectAIVisionFields(file);
+        aiFields = aiResult.fields;
+        aiError = aiResult.error;
+        console.log(`AI vision found ${aiFields.length} candidate fields:`, aiResult.pageCounts);
+        if (aiError) console.warn('AI vision returned error:', aiError);
+      } catch (visionError) {
+        console.error('AI vision detection failed:', visionError);
+      }
+
+      if (aiFields.length > 0) {
+        await materializeInferredFields(file, aiFields);
+        return;
+      }
+
+      // All tiers exhausted — offer the manual creator
+      setViewMode('upload');
+      const message = aiError
+        ? `No form fields detected. AI vision: ${aiError}\n\nWould you like to create fields manually by dragging and dropping them on the document?`
+        : 'No form fields detected in this PDF. Would you like to create fields by dragging and dropping them on the document?';
+      const shouldCreateFields = confirm(message);
+      if (shouldCreateFields) {
+        setShowFieldCreator(true);
       }
     } catch (error) {
       console.error('Error detecting fields:', error);
@@ -108,6 +184,7 @@ export default function HomePage() {
       setViewMode('upload');
     } finally {
       setProcessing(false);
+      setDetectionStage(null);
     }
   };
 
@@ -467,18 +544,53 @@ export default function HomePage() {
 
           {viewMode === 'loading' && (
             <div className="flex items-center justify-center min-h-[400px]">
-              <div className="text-center">
+              <div className="text-center max-w-md">
                 <div className="relative inline-block mb-4">
                   <Loader2 className="w-14 h-14 text-ink animate-spin mx-auto" />
                 </div>
-                <p className="font-marker text-xl text-ink mb-1">
-                  {useAILabeling ? 'detecting fields & generating AI labels…' : 'detecting form fields…'}
+                <p className="font-marker text-xl text-ink mb-2">
+                  {detectionStage === 'visual'
+                    ? 'scanning visual boxes…'
+                    : detectionStage === 'ai-vision'
+                    ? 'asking AI to find fields…'
+                    : useAILabeling
+                    ? 'detecting fields & generating AI labels…'
+                    : 'detecting form fields…'}
                 </p>
-                {useAILabeling && (
-                  <p className="font-cursive text-base text-ink-soft mt-2">
-                    this may take a moment
-                  </p>
-                )}
+                {/* Tier indicator — three pills, current one highlighted */}
+                <div className="flex items-center justify-center gap-2 mt-3">
+                  {(['acroform', 'visual', 'ai-vision'] as const).map((stage) => {
+                    const labels = {
+                      acroform: '1. AcroForm',
+                      visual: '2. Vector boxes',
+                      'ai-vision': '3. AI vision',
+                    };
+                    const stages = ['acroform', 'visual', 'ai-vision'] as const;
+                    const currentIdx = detectionStage ? stages.indexOf(detectionStage) : 0;
+                    const myIdx = stages.indexOf(stage);
+                    const isCurrent = stage === detectionStage;
+                    const isPast = myIdx < currentIdx;
+                    return (
+                      <span
+                        key={stage}
+                        className={`pill-hand text-[11px] ${
+                          isCurrent
+                            ? 'bg-accent-yellow border-ink'
+                            : isPast
+                            ? 'bg-accent-mint/40 border-ink'
+                            : 'bg-white opacity-50'
+                        }`}
+                      >
+                        {labels[stage]}
+                      </span>
+                    );
+                  })}
+                </div>
+                <p className="font-cursive text-base text-ink-soft mt-4">
+                  {detectionStage === 'ai-vision'
+                    ? 'this may take 10–20 seconds'
+                    : 'falling back through detection tiers…'}
+                </p>
               </div>
             </div>
           )}
