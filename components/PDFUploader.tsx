@@ -37,26 +37,28 @@ export default function PDFUploader({ onFileSelect, selectedFile, onRemove }: PD
   if (selectedFile) {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative p-6 bg-gray-800/50 backdrop-blur-xl rounded-xl border border-gray-700/50"
+        className="card-paper p-5 relative"
       >
+        <div className="tape" style={{ top: '-10px', left: '50%', marginLeft: '-35px' }} />
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-primary/20 rounded-lg">
-            <FileText className="w-6 h-6 text-primary" />
+          <div className="w-12 h-12 rounded-md border-[1.5px] border-ink bg-accent-yellow flex items-center justify-center shadow-rough rotate-tiny-l">
+            <FileText className="w-6 h-6 text-ink" strokeWidth={2} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white font-medium truncate">{selectedFile.name}</p>
-            <p className="text-gray-400 text-sm">
-              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+            <p className="font-marker text-lg text-ink truncate">{selectedFile.name}</p>
+            <p className="font-cursive text-base text-ink-soft">
+              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB &middot; ready
             </p>
           </div>
           {onRemove && (
             <button
               onClick={onRemove}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              className="btn-rough"
+              title="Remove file"
             >
-              <X className="w-5 h-5 text-gray-400 hover:text-white" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -65,13 +67,13 @@ export default function PDFUploader({ onFileSelect, selectedFile, onRemove }: PD
   }
 
   const rootProps = getRootProps();
-  const { 
-    onAnimationStart, 
-    onAnimationEnd, 
-    onDragStart, 
-    onDrag, 
+  const {
+    onAnimationStart,
+    onAnimationEnd,
+    onDragStart,
+    onDrag,
     onDragEnd,
-    ...motionProps 
+    ...motionProps
   } = rootProps;
 
   return (
@@ -79,30 +81,35 @@ export default function PDFUploader({ onFileSelect, selectedFile, onRemove }: PD
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       {...motionProps}
-      className={`
-        relative p-12 border-2 border-dashed rounded-xl cursor-pointer
-        transition-all duration-300
-        ${
-          isDragActive || isDragging
-            ? 'border-primary bg-primary/10 scale-105'
-            : 'border-gray-700 bg-gray-800/30 hover:border-gray-600 hover:bg-gray-800/50'
-        }
-      `}
+      className={`relative p-12 cursor-pointer transition-all duration-200 rough bg-white ${
+        isDragActive || isDragging
+          ? 'shadow-rough-xl -translate-x-1 -translate-y-1 bg-accent-yellow/30'
+          : 'hover:shadow-rough-lg hover:-translate-x-0.5 hover:-translate-y-0.5'
+      }`}
+      style={{
+        backgroundImage: `repeating-linear-gradient(135deg, rgba(0,0,0,.04) 0 4px, transparent 4px 14px)`,
+      }}
     >
       <input {...getInputProps()} />
       <div className="text-center">
         <motion.div
-          animate={isDragActive ? { scale: 1.1, rotate: 5 } : { scale: 1, rotate: 0 }}
+          animate={isDragActive ? { scale: 1.15, rotate: -8 } : { scale: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 300 }}
           className="inline-block mb-4"
         >
-          <Upload className="w-12 h-12 text-gray-400 mx-auto" />
+          <div className="w-20 h-20 mx-auto rounded-full border-[1.5px] border-ink bg-accent-yellow flex items-center justify-center shadow-rough">
+            <Upload className="w-10 h-10 text-ink" strokeWidth={2} />
+          </div>
         </motion.div>
-        <p className="text-white font-medium mb-2">
-          {isDragActive ? 'Drop your PDF here' : 'Drag & drop a PDF file'}
+        <p className="font-marker text-2xl text-ink mb-2">
+          {isDragActive ? 'drop it here!' : 'Drag & drop a PDF'}
         </p>
-        <p className="text-gray-400 text-sm">or click to browse</p>
-        <p className="text-gray-500 text-xs mt-2">PDF files only</p>
+        <p className="font-cursive text-lg text-ink-soft mb-1">
+          or click to browse your files
+        </p>
+        <p className="font-typewriter text-[10px] text-ink-faint uppercase tracking-widest mt-3">
+          [ PDF files only ]
+        </p>
       </div>
     </motion.div>
   );

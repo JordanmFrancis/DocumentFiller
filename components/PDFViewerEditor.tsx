@@ -528,85 +528,87 @@ export default function PDFViewerEditor({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm flex items-center justify-center p-4"
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
+          initial={{ scale: 0.95, opacity: 0, rotate: -1 }}
+          animate={{ scale: 1, opacity: 1, rotate: 0 }}
+          exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col"
+          className="bg-paper border-2 border-ink rounded-lg shadow-rough-xl w-full max-w-7xl h-[92vh] flex flex-col relative"
         >
+          {/* Tape on top */}
+          <div className="tape" style={{ top: '-12px', left: '50%', marginLeft: '-35px', zIndex: 10 }} />
+
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-800">
-            <div className="flex items-center gap-4">
-              <h2 className="text-xl font-bold text-white">Edit Field Labels</h2>
-              <div className="text-sm text-gray-400">
-                {fields.length} total field{fields.length !== 1 ? 's' : ''} • {fieldsWithPosition.length} with positions on page {currentPage}
-              </div>
+          <div className="flex items-center justify-between p-4 border-b-2 border-ink bg-paper">
+            <div className="flex items-center gap-4 flex-wrap">
+              <h2 className="font-marker text-xl text-ink squig">Edit Field Labels</h2>
+              <span className="font-cursive text-base text-ink-soft">
+                {fields.length} total &middot; {fieldsWithPosition.length} on page {currentPage}
+              </span>
               {fieldsWithPosition.length === 0 && (
-                <div className="text-xs text-yellow-400">
-                  ⚠ No field positions detected - check console
-                </div>
+                <span className="stamp text-margin-red">⚠ no positions</span>
               )}
               {fieldsWithPosition.length > 0 && (
-                <div className="text-xs text-gray-500">
-                  Drag to move • Ctrl+Wheel to scale
-                </div>
+                <span className="font-typewriter text-[10px] text-ink-faint uppercase">
+                  drag to nudge &middot; ctrl+wheel to scale
+                </span>
               )}
             </div>
             <div className="flex items-center gap-2">
               {/* Page Navigation */}
               {numPages > 1 && (
-                <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1">
+                <div className="flex items-center gap-1 rough-sm px-2 py-1 bg-white">
                   <button
                     onClick={handlePrevPage}
                     disabled={currentPage === 1}
-                    className="px-2 py-1 hover:bg-gray-700 rounded text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 py-0.5 hover:bg-accent-yellow/40 rounded font-marker text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ←
                   </button>
-                  <span className="text-gray-300 text-sm min-w-[80px] text-center">
+                  <span className="font-marker text-ink text-sm min-w-[80px] text-center">
                     Page {currentPage} / {numPages}
                   </span>
                   <button
                     onClick={handleNextPage}
                     disabled={currentPage === numPages}
-                    className="px-2 py-1 hover:bg-gray-700 rounded text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 py-0.5 hover:bg-accent-yellow/40 rounded font-marker text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     →
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-2 py-1">
+              <div className="flex items-center gap-1 rough-sm px-2 py-1 bg-white">
                 <button
                   onClick={() => handleZoom(-0.1)}
-                  className="px-2 py-1 hover:bg-gray-700 rounded text-white text-sm"
+                  className="p-1 hover:bg-accent-yellow/40 rounded text-ink"
                 >
                   <ZoomOut className="w-4 h-4" />
                 </button>
-                <span className="text-gray-300 text-sm min-w-[50px] text-center">
+                <span className="font-marker text-ink text-sm min-w-[44px] text-center">
                   {Math.round(scale * 100)}%
                 </span>
                 <button
                   onClick={() => handleZoom(0.1)}
-                  className="px-2 py-1 hover:bg-gray-700 rounded text-white text-sm"
+                  className="p-1 hover:bg-accent-yellow/40 rounded text-ink"
                 >
                   <ZoomIn className="w-4 h-4" />
                 </button>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                className="btn-rough"
+                title="Close"
               >
-                <X className="w-5 h-5 text-gray-400 hover:text-white" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* PDF Canvas Viewer with Overlays */}
-          <div className="flex-1 bg-gray-800 p-4 overflow-auto">
+          <div className="flex-1 bg-paper p-4 overflow-auto">
             {pdfDoc ? (
               <div 
                 ref={containerRef}
@@ -616,7 +618,7 @@ export default function PDFViewerEditor({
                 <div className="relative inline-block">
                   <canvas
                     ref={canvasRef}
-                    className="border border-gray-700 rounded-lg shadow-2xl"
+                    className="border-2 border-ink rounded-md shadow-rough-lg bg-white"
                   />
                   
                   {/* Overlay Container - positioned absolutely over canvas */}
@@ -628,7 +630,6 @@ export default function PDFViewerEditor({
                         width: `${canvasSize.width}px`,
                         height: `${canvasSize.height}px`,
                         cursor: isDragging ? 'grabbing' : 'grab',
-                        border: '1px solid rgba(59, 130, 246, 0.3)', // Debug: show overlay container
                       }}
                       onMouseDown={handleMouseDown}
                     >
@@ -656,17 +657,17 @@ export default function PDFViewerEditor({
                           style={{
                             ...style,
                             backgroundColor: isHighlighted
-                              ? 'rgba(34, 197, 94, 0.5)' // Green for highlighted
-                              : isHovered || isEditing 
-                              ? 'rgba(59, 130, 246, 0.4)' 
-                              : 'rgba(59, 130, 246, 0.2)',
+                              ? 'rgba(109, 224, 182, 0.55)' // Mint for highlighted
+                              : isHovered || isEditing
+                              ? 'rgba(255, 222, 89, 0.5)'
+                              : 'rgba(255, 222, 89, 0.22)',
                             border: isHighlighted
-                              ? '3px solid #22c55e' // Green border for highlighted
-                              : isHovered || isEditing 
-                              ? '2px solid #3b82f6' 
-                              : '2px dashed rgba(59, 130, 246, 0.8)',
+                              ? '2.5px solid #1a1a1a'
+                              : isHovered || isEditing
+                              ? '2px solid #1a1a1a'
+                              : '2px dashed rgba(26,26,26,0.7)',
                             pointerEvents: 'auto',
-                            boxShadow: isHighlighted ? '0 0 20px rgba(34, 197, 94, 0.6)' : 'none',
+                            boxShadow: isHighlighted ? '3px 3px 0 #1a1a1a' : 'none',
                             zIndex: isHighlighted ? 20 : 10,
                           }}
                           onMouseEnter={() => setHoveredField(field.name)}
@@ -676,8 +677,8 @@ export default function PDFViewerEditor({
                           title={field.label || field.name}
                         >
                           {isEditing && (
-                            <div className="absolute -top-20 left-0 bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-xl z-20 min-w-[250px]">
-                              <div className="text-xs text-gray-400 mb-2">Edit field label</div>
+                            <div className="absolute -top-24 left-0 bg-white border-2 border-ink rounded-md p-3 shadow-rough z-20 min-w-[260px]">
+                              <div className="font-marker text-xs text-ink-soft uppercase tracking-wide mb-2">edit field label</div>
                               <input
                                 type="text"
                                 value={editValue}
@@ -687,7 +688,7 @@ export default function PDFViewerEditor({
                                   if (e.key === 'Escape') handleCancelEdit();
                                 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-primary mb-2"
+                                className="input-rough mb-2"
                                 autoFocus
                                 placeholder="Enter label..."
                               />
@@ -697,7 +698,7 @@ export default function PDFViewerEditor({
                                     e.stopPropagation();
                                     handleSaveEdit();
                                   }}
-                                  className="flex-1 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white rounded text-sm font-medium transition-colors"
+                                  className="btn-rough primary flex-1 justify-center"
                                 >
                                   Save
                                 </button>
@@ -706,7 +707,7 @@ export default function PDFViewerEditor({
                                     e.stopPropagation();
                                     handleCancelEdit();
                                   }}
-                                  className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm transition-colors"
+                                  className="btn-rough"
                                 >
                                   Cancel
                                 </button>
@@ -714,9 +715,9 @@ export default function PDFViewerEditor({
                             </div>
                           )}
                           {(isHovered || isHighlighted) && !isEditing && (
-                            <div className={`absolute -top-8 left-0 bg-gray-900 border ${isHighlighted ? 'border-green-500' : 'border-gray-700'} rounded px-2 py-1 text-xs text-white whitespace-nowrap shadow-lg z-20`}>
+                            <div className={`absolute -top-8 left-0 bg-ink rounded px-2 py-1 font-marker text-xs text-white whitespace-nowrap shadow-rough z-20 ${isHighlighted ? 'bg-accent-mint text-ink' : ''}`}>
                               {field.label || field.name}
-                              {isHighlighted && <span className="ml-2 text-green-400">●</span>}
+                              {isHighlighted && <span className="ml-2">●</span>}
                             </div>
                           )}
                         </div>
@@ -728,7 +729,10 @@ export default function PDFViewerEditor({
               </div>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-ink border-t-transparent mx-auto mb-3"></div>
+                  <p className="font-marker text-ink">loading PDF…</p>
+                </div>
               </div>
             )}
           </div>

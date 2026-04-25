@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail } from '@/lib/firebase/auth';
-import { Mail, Lock, LogIn } from 'lucide-react';
+import { Mail, Lock, LogIn, FileText } from 'lucide-react';
 
 export default function LoginForm() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -54,41 +54,65 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-paper p-4 relative overflow-hidden">
+      {/* Decorative paper backdrop */}
+      <div
+        className="absolute inset-0 opacity-30 pointer-events-none"
+        style={{
+          background: `repeating-linear-gradient(135deg, rgba(0,0,0,.04) 0 4px, transparent 4px 14px)`,
+        }}
+      />
+
+      {/* Floating sticky notes */}
+      <div className="hidden lg:block absolute top-12 left-12 sticky-note rotate-small-l w-52">
+        <span className="text-base">welcome back!<br />sign in to keep going ✨</span>
+      </div>
+      <div className="hidden lg:block absolute bottom-16 right-12 sticky-note rotate-small-r w-48" style={{ background: '#ffe0e0' }}>
+        <span className="text-base">first time here?<br />click "Sign up" below</span>
+      </div>
+
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 20, rotate: -1 }}
+        animate={{ opacity: 1, y: 0, rotate: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
+        className="w-full max-w-md relative z-10"
       >
-        <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-700/50 p-8">
+        <div className="card-paper p-8 relative">
+          {/* Tape on top */}
+          <div className="tape" style={{ top: '-12px', left: '50%', marginLeft: '-35px' }} />
+
           <motion.div
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.1 }}
             className="text-center mb-8"
           >
-            <h1 className="text-3xl font-bold text-white mb-2">Document Filler</h1>
-            <p className="text-gray-400">Sign in to continue</p>
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-md border-[1.5px] border-ink bg-accent-yellow shadow-rough rotate-tiny-l mb-4">
+              <FileText className="w-8 h-8 text-ink" strokeWidth={2} />
+            </div>
+            <h1 className="font-marker text-3xl text-ink mb-1">Document Filler</h1>
+            <p className="font-cursive text-lg text-ink-soft">
+              sign in to fill some forms
+            </p>
           </motion.div>
 
           {error && (
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm"
+              className="mb-4 p-3 border-2 border-margin-red bg-accent-coral/15 rounded-md font-cursive text-base text-margin-red"
             >
-              {error}
+              ⚠ {error}
             </motion.div>
           )}
 
-          <div className="space-y-4 mb-6">
+          <div className="space-y-3 mb-6">
             <motion.button
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1.02, rotate: -0.5 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white text-gray-900 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-rough w-full justify-center py-3 text-base"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -112,11 +136,11 @@ export default function LoginForm() {
             </motion.button>
 
             <motion.button
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1.02, rotate: 0.5 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleAppleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-rough dark w-full justify-center py-3 text-base"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.08-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
@@ -127,65 +151,67 @@ export default function LoginForm() {
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700"></div>
+              <div className="w-full border-t-2 border-dashed border-ink/30"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-800/50 text-gray-400">Or continue with email</span>
+              <span className="px-3 bg-white font-cursive text-ink-soft text-base">
+                or with email
+              </span>
             </div>
           </div>
 
           <form onSubmit={handleEmailAuth} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="font-marker text-sm text-ink mb-1.5 block">
                 Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-soft pointer-events-none" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  className="input-rough pl-10"
                   placeholder="you@example.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="font-marker text-sm text-ink mb-1.5 block">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-soft pointer-events-none" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  className="input-rough pl-10"
                   placeholder="••••••••"
                 />
               </div>
             </div>
 
             <motion.button
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1.02, rotate: -0.5 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary-hover text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-rough primary w-full justify-center py-3 text-base"
             >
               <LogIn className="w-5 h-5" />
-              {loading ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Sign In'}
+              {loading ? 'Please wait…' : isSignUp ? 'Sign Up' : 'Sign In'}
             </motion.button>
           </form>
 
           <div className="mt-6 text-center">
             <button
               onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm text-gray-400 hover:text-white transition-colors"
+              className="font-cursive text-base text-ink-soft hover:text-ink transition-colors underline decoration-dashed underline-offset-4"
             >
               {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
             </button>

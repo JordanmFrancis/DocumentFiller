@@ -14,7 +14,6 @@ export default function FieldLabelEditor({ field, onLabelChange }: FieldLabelEdi
   const [isEditing, setIsEditing] = useState(false);
   const [editedLabel, setEditedLabel] = useState(field.label || field.name);
 
-  // Update editedLabel when field.label changes
   useEffect(() => {
     if (!isEditing) {
       setEditedLabel(field.label || field.name);
@@ -24,7 +23,6 @@ export default function FieldLabelEditor({ field, onLabelChange }: FieldLabelEdi
   const handleSave = () => {
     if (editedLabel.trim()) {
       onLabelChange(field.name, editedLabel.trim());
-      console.log('Label changed:', field.name, '->', editedLabel.trim());
     } else {
       setEditedLabel(field.label || field.name);
     }
@@ -38,7 +36,7 @@ export default function FieldLabelEditor({ field, onLabelChange }: FieldLabelEdi
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-1">
         <input
           type="text"
           value={editedLabel}
@@ -47,45 +45,48 @@ export default function FieldLabelEditor({ field, onLabelChange }: FieldLabelEdi
             if (e.key === 'Enter') handleSave();
             if (e.key === 'Escape') handleCancel();
           }}
-          className="flex-1 px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-primary"
+          className="flex-1 px-2 py-1 text-base bg-white border-b-2 border-margin-red font-marker text-ink focus:outline-none"
           autoFocus
         />
         <motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={handleSave}
-          className="p-1 text-green-400 hover:bg-gray-700 rounded"
+          className="p-1 rounded border-[1.5px] border-ink bg-accent-mint shadow-rough"
         >
-          <Check className="w-4 h-4" />
+          <Check className="w-3.5 h-3.5 text-ink" strokeWidth={2.5} />
         </motion.button>
         <motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={handleCancel}
-          className="p-1 text-red-400 hover:bg-gray-700 rounded"
+          className="p-1 rounded border-[1.5px] border-ink bg-accent-coral/40 shadow-rough"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5 text-ink" strokeWidth={2.5} />
         </motion.button>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2 group">
-      <span className="text-sm font-medium text-gray-300">
+    <div className="flex items-center gap-2 group flex-1">
+      <span className="font-marker text-base text-ink">
         {field.label || field.name}
       </span>
       <motion.button
-        whileHover={{ scale: 1.1 }}
+        whileHover={{ scale: 1.15, rotate: -8 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => setIsEditing(true)}
-        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-white transition-opacity"
+        className="opacity-0 group-hover:opacity-100 p-1 text-ink-soft hover:text-ink transition-opacity"
         title="Edit label"
       >
-        <Edit2 className="w-3 h-3" />
+        <Edit2 className="w-3.5 h-3.5" />
       </motion.button>
       {field.name !== (field.label || field.name) && (
-        <span className="text-xs text-gray-500" title={`Internal name: ${field.name}`}>
+        <span
+          className="font-typewriter text-[10px] text-ink-faint uppercase tracking-wide"
+          title={`Internal name: ${field.name}`}
+        >
           ({field.name})
         </span>
       )}

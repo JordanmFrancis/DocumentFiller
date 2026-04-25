@@ -8,25 +8,54 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        hand: ['Patrick Hand', 'system-ui', 'sans-serif'],
+        cursive: ['Caveat', 'cursive'],
+        marker: ['Kalam', 'cursive'],
+        typewriter: ['Special Elite', 'monospace'],
+        monohand: ['JetBrains Mono', 'monospace'],
+        serifhand: ['Source Serif 4', 'Georgia', 'serif'],
+      },
       colors: {
-        background: 'var(--background)',
-        foreground: 'var(--foreground)',
+        paper: {
+          DEFAULT: '#efece4',
+          legalpad: '#fdf6c7',
+          manila: '#e7d7a8',
+          indexcard: '#fbfbf4',
+        },
+        ink: {
+          DEFAULT: '#1a1a1a',
+          soft: '#4a4a4a',
+          faint: '#888',
+        },
+        accent: {
+          yellow: '#ffde59',
+          mint: '#6de0b6',
+          coral: '#ff6b6b',
+          'margin-red': '#d22828',
+          'line-blue': '#2848a0',
+        },
+        // Legacy aliases preserved so existing API stays compatible
+        background: 'var(--paper-bg)',
+        foreground: 'var(--ink)',
         primary: {
-          DEFAULT: '#10a37f',
-          hover: '#0d8f6e',
+          DEFAULT: '#1a1a1a',
+          hover: '#000000',
         },
         secondary: {
-          DEFAULT: '#343541',
-          hover: '#40414f',
+          DEFAULT: '#ffde59',
+          hover: '#ffd633',
         },
-        border: '#565869',
-        input: '#40414f',
+        border: '#1a1a1a',
+        input: '#fff',
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
         'slide-down': 'slideDown 0.3s ease-out',
         'scale-in': 'scaleIn 0.2s ease-out',
+        'ink-in': 'inkAppear 0.3s ease-out',
+        'wobble': 'wobble 0.4s ease-in-out',
       },
       keyframes: {
         fadeIn: {
@@ -45,6 +74,19 @@ const config: Config = {
           '0%': { transform: 'scale(0.95)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
+        inkAppear: {
+          '0%': { opacity: '0', transform: 'translateY(-3px) rotate(-1deg)' },
+          '100%': { opacity: '1', transform: 'translateY(0) rotate(0)' },
+        },
+        wobble: {
+          '0%, 100%': { transform: 'rotate(-0.3deg)' },
+          '50%': { transform: 'rotate(0.3deg)' },
+        },
+      },
+      boxShadow: {
+        'rough': '2px 2px 0 #1a1a1a',
+        'rough-lg': '4px 4px 0 #1a1a1a',
+        'rough-xl': '6px 6px 0 #1a1a1a',
       },
     },
   },
