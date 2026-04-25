@@ -251,24 +251,10 @@ function filterToFieldShapes(
   pageWidth: number,
   pageHeight: number
 ): DetectedRect[] {
+  const margin = 4;
+
   const filtered = rects.filter((r) => {
-    // Filled-only (no stroke) rects are usually backgrounds — skip them.
-    // Stroked rects (with or without fill) are box-shaped → keep.
-    if (!r.stroked) return false;
-
-    // Tiny boxes are likely artifacts, separators, or small icons
-    if (r.width < 8 || r.height < 6) return false;
-
-    // Page-sized rectangles are almost always page borders or backgrounds
-    if (r.width > pageWidth * 0.92) return false;
-    if (r.height > pageHeight * 0.85) return false;
-
-    // Very-thin rectangles are lines, not boxes
-    const aspect = r.width / r.height;
-    if (aspect > 60 || aspect < 1 / 30) return false;
-
-    // Reject rectangles that aren't sensibly inside the page
-    const margin = 4;
+    // Reject anything not sensibly inside the page
     if (
       r.x < -margin ||
       r.y < -margin ||
@@ -278,28 +264,95 @@ function filterToFieldShapes(
       return false;
     }
 
-    return true;
+    // Page-sized rectangles are almost always page borders or backgrounds
+    if (r.width > pageWidth * 0.95) return false;
+    if (r.height > pageHeight * 0.85) return false;
+
+    // Tiny rects are artifacts (separators, dots, icon details)
+    if (r.width < 6 || r.height < 3) return false;
+
+    if (r.stroked) {
+      // Bordered rectangles are the strongest signal a region is fillable.
+      // Keep the filter loose — allow long thin fields (underline-style boxes
+      // or single-row table cells) up to aspect 200:1.
+      const aspect = r.width / r.height;
+      if (aspect > 200 || aspect < 1 / 30) return false;
+      return true;
+    }
+
+    // Filled-only rects: many modern forms (real estate, government, web-style)
+    // use a light-grey filled box with no border as the input area. Without
+    // color info, we can't tell those apart from page tints/header bars/table
+    // backgrounds purely by shape — so apply tighter limits to avoid false
+    // positives while still catching typical input-shaped fills.
+    if (r.filled) {
+      // Reject anything that takes up too much of the page (likely a header
+      // bar, sidebar, footer, or page tint)
+      if (r.width > pageWidth * 0.75) return false;
+      if (r.height > 60) return false;
+
+      const aspect = r.width / r.height;
+      if (aspect > 50 || aspect < 0.4) return false;
+
+      // Two acceptable shape profiles:
+      //   - small near-square checkbox (8–24pt)
+      //   - input-box-shaped: at least 24pt wide and 10–40pt tall
+      const isCheckboxLike =
+        r.width <= 24 && r.height <= 24 && Math.abs(r.width - r.height) < 8;
+      const isInputLike =
+        r.width >= 24 && r.height >= 10 && r.height <= 40;
+      return isCheckboxLike || isInputLike;
+    }
+
+    return false;
   });
 
-  // Dedup: PDFs frequently stroke the same rect twice (visible border + a
-  // fill underneath, or a double border for emphasis). Quantize coords to
-  // 2-point buckets and drop near-duplicates.
-  const seen = new Set<string>();
-  const deduped: DetectedRect[] = [];
+  // Dedup: PDFs frequently stroke the same rect twice (visible border + fill
+  // underneath, double border for emphasis, or stroke+fillStroke duplicates).
+  // Quantize coords to 2-point buckets and drop near-duplicates.
+  // When duplicates collide, prefer the one with a stroke (more reliable).
+  const byKey = new Map<string, DetectedRect>();
   for (const r of filtered) {
     const key = `${Math.round(r.x / 2)}_${Math.round(r.y / 2)}_${Math.round(r.width / 2)}_${Math.round(r.height / 2)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(r);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, r);
+    } else if (!existing.stroked && r.stroked) {
+      byKey.set(key, r);
+    }
+  }
+  const deduped = Array.from(byKey.values());
+
+  // Containment dedup: if a rect is entirely inside another similar-sized rect,
+  // drop the inner one. PDFs sometimes draw a rect as both a border and a
+  // slightly-inset fill (the fill ends up nested in the border).
+  const sortedByArea = [...deduped].sort(
+    (a, b) => b.width * b.height - a.width * a.height
+  );
+  const kept: DetectedRect[] = [];
+  for (const r of sortedByArea) {
+    const containedBy = kept.find((other) => {
+      const tol = 3;
+      return (
+        r.x >= other.x - tol &&
+        r.y >= other.y - tol &&
+        r.x + r.width <= other.x + other.width + tol &&
+        r.y + r.height <= other.y + other.height + tol &&
+        // Only treat as containment if the outer is at most ~30% larger in area
+        // — otherwise we'd kill legitimate small fields inside larger panels
+        other.width * other.height <= r.width * r.height * 1.3
+      );
+    });
+    if (!containedBy) kept.push(r);
   }
 
   // Sort top-to-bottom, left-to-right (in user space, top of page = high Y)
-  deduped.sort((a, b) => {
+  kept.sort((a, b) => {
     if (Math.abs(a.y - b.y) > 6) return b.y - a.y;
     return a.x - b.x;
   });
 
-  return deduped;
+  return kept;
 }
 
 export interface VisualDetectionResult {
@@ -348,15 +401,25 @@ export async function detectVisualFields(
     pageCounts.push(filtered.length);
 
     filtered.forEach((r, idx) => {
-      // pdf.js operator-list coords are in PDF user space (bottom-left origin).
-      // Our app stores positions in top-left origin, so flip Y.
-      const topLeftY = pageHeight - r.y - r.height;
-
-      // Heuristic: small square boxes are checkboxes, otherwise text fields.
-      // Anything taller than 60pt on a single line is likely a multi-line area
-      // but we still treat it as a text field — pdf-lib can't easily distinguish.
+      // Heuristic: small near-square boxes are checkboxes, otherwise text fields.
       const isCheckboxShaped =
-        r.width <= 22 && r.height <= 22 && Math.abs(r.width - r.height) < 6;
+        r.width <= 24 && r.height <= 24 && Math.abs(r.width - r.height) <= 8;
+
+      // Underline-style fields: detector finds them as very thin rects (a 1–4pt
+      // filled or stroked horizontal bar). Those are too short for text to fit
+      // when rendered as an AcroForm widget, so expand the field upward to a
+      // usable typing height while keeping the underline at the bottom.
+      const MIN_TEXT_HEIGHT = 14;
+      const isUnderlineStyled = !isCheckboxShaped && r.width >= 24 && r.height < 6;
+
+      const fieldHeight = isUnderlineStyled
+        ? MIN_TEXT_HEIGHT
+        : r.height;
+
+      // pdf.js operator-list coords are in PDF user space (bottom-left origin).
+      // Our app stores positions in top-left origin, so flip Y. For underlines
+      // we anchor to the underline's bottom and grow upward.
+      const topLeftY = pageHeight - r.y - fieldHeight;
 
       const fieldName = `vfield_p${pageNum}_${idx}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
@@ -369,7 +432,7 @@ export async function detectVisualFields(
           x: r.x,
           y: topLeftY,
           width: r.width,
-          height: r.height,
+          height: fieldHeight,
           page: pageNum - 1,
         },
       });
