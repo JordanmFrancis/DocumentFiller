@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { FileText, Plus } from 'lucide-react';
+import { FileText, Plus, Folder, Pencil } from 'lucide-react';
 
 interface SidebarProps {
   onNewDocument: () => void;
@@ -9,21 +9,42 @@ interface SidebarProps {
 
 export default function Sidebar({ onNewDocument }: SidebarProps) {
   return (
-    <aside className="w-64 bg-gray-900/50 border-r border-gray-800 p-6">
+    <aside className="w-64 shrink-0 border-r-2 border-ink bg-paper/50 p-6 min-h-[calc(100vh-4rem)] relative">
+      {/* Tape accent */}
+      <div className="tape" style={{ top: '-12px', left: '50%', marginLeft: '-35px' }} />
+
       <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        whileHover={{ scale: 1.02, rotate: -1 }}
+        whileTap={{ scale: 0.97 }}
         onClick={onNewDocument}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary-hover text-white rounded-lg font-medium transition-colors mb-6"
+        className="btn-rough primary w-full justify-center text-base py-3 mb-8 mt-2"
       >
         <Plus className="w-5 h-5" />
         New Document
       </motion.button>
 
-      <div className="space-y-2">
-        <div className="flex items-center gap-3 px-3 py-2 text-gray-400 text-sm font-medium">
-          <FileText className="w-4 h-4" />
-          Documents
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-ink-soft">
+          <Folder className="w-4 h-4" />
+          <span className="font-marker text-sm uppercase tracking-wide squig">
+            My Documents
+          </span>
+        </div>
+        <p className="font-cursive text-base text-ink-soft pl-6 italic">
+          your filing cabinet —<br />
+          everything you've uploaded
+        </p>
+      </div>
+
+      {/* Hint card at bottom */}
+      <div className="absolute bottom-6 left-6 right-6">
+        <div className="sticky-note">
+          <div className="flex items-start gap-2">
+            <Pencil className="w-4 h-4 mt-0.5 shrink-0" />
+            <span className="text-sm leading-tight">
+              Tip: drag any PDF onto the upload zone to begin.
+            </span>
+          </div>
         </div>
       </div>
     </aside>

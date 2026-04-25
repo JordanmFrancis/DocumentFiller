@@ -12,7 +12,7 @@ interface FieldInputProps {
 
 export default function FieldInput({ field, value, onChange, error }: FieldInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const newValue = field.type === 'checkbox' 
+    const newValue = field.type === 'checkbox'
       ? (e.target as HTMLInputElement).checked
       : e.target.value;
     onChange(newValue);
@@ -20,81 +20,75 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-2"
     >
-
       {field.type === 'text' && (
-        <motion.input
-          whileFocus={{ scale: 1.01 }}
+        <input
           type="text"
-          value={value || field.defaultValue || ''}
+          value={value || (field.defaultValue as string) || ''}
           onChange={handleChange}
-          className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-          placeholder={`Enter ${field.name.toLowerCase()}`}
+          className="input-rough"
+          placeholder={`write your ${(field.label || field.name).toLowerCase()}…`}
         />
       )}
 
       {field.type === 'date' && (
-        <motion.input
-          whileFocus={{ scale: 1.01 }}
+        <input
           type="date"
-          value={value || field.defaultValue || ''}
+          value={value || (field.defaultValue as string) || ''}
           onChange={handleChange}
-          className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          className="input-rough"
         />
       )}
 
       {field.type === 'number' && (
-        <motion.input
-          whileFocus={{ scale: 1.01 }}
+        <input
           type="number"
-          value={value || field.defaultValue || ''}
+          value={value ?? (field.defaultValue as number) ?? ''}
           onChange={handleChange}
-          className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-          placeholder={`Enter ${field.name.toLowerCase()}`}
+          className="input-rough"
+          placeholder={`enter a number…`}
         />
       )}
 
       {field.type === 'checkbox' && (
-        <motion.label
-          whileHover={{ scale: 1.02 }}
-          className="flex items-center gap-3 cursor-pointer"
-        >
+        <label className="flex items-center gap-3 cursor-pointer group">
           <input
             type="checkbox"
-            checked={value ?? field.defaultValue ?? false}
+            checked={!!(value ?? field.defaultValue ?? false)}
             onChange={handleChange}
-            className="w-5 h-5 rounded border-gray-600 bg-gray-700 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-gray-800"
+            className="checkbox-hand"
           />
-          <span className="text-gray-300">Check to enable</span>
-        </motion.label>
+          <span className="font-cursive text-lg text-ink-soft group-hover:text-ink transition-colors">
+            {value || field.defaultValue ? 'yes — checked' : 'tick to enable'}
+          </span>
+        </label>
       )}
 
       {(field.type === 'radio' || field.type === 'dropdown') && field.options && (
-        <motion.select
-          whileFocus={{ scale: 1.01 }}
-          value={value || field.defaultValue || ''}
+        <select
+          value={value || (field.defaultValue as string) || ''}
           onChange={handleChange}
-          className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          className="input-rough cursor-pointer"
         >
-          <option value="">Select an option</option>
+          <option value="">— pick one —</option>
           {field.options.map((option) => (
-            <option key={option} value={option} className="bg-gray-800">
+            <option key={option} value={option}>
               {option}
             </option>
           ))}
-        </motion.select>
+        </select>
       )}
 
       {error && (
         <motion.p
-          initial={{ opacity: 0, x: -10 }}
+          initial={{ opacity: 0, x: -8 }}
           animate={{ opacity: 1, x: 0 }}
-          className="text-sm text-red-400"
+          className="font-cursive text-base text-accent-coral pl-1 italic"
         >
-          {error}
+          ⚠ {error}
         </motion.p>
       )}
     </motion.div>
