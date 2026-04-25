@@ -9,53 +9,61 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        hand: ['Patrick Hand', 'system-ui', 'sans-serif'],
-        cursive: ['Caveat', 'cursive'],
-        marker: ['Kalam', 'cursive'],
-        typewriter: ['Special Elite', 'monospace'],
-        monohand: ['JetBrains Mono', 'monospace'],
-        serifhand: ['Source Serif 4', 'Georgia', 'serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+        serif: ['Source Serif 4', 'Georgia', 'Times New Roman', 'serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
       },
       colors: {
         paper: {
-          DEFAULT: '#efece4',
-          legalpad: '#fdf6c7',
-          manila: '#e7d7a8',
-          indexcard: '#fbfbf4',
+          DEFAULT: '#f3eee0',
+          card: '#fbf8f0',
+          elev: '#ffffff',
+          edge: '#ede7d6',
         },
         ink: {
           DEFAULT: '#1a1a1a',
-          soft: '#4a4a4a',
-          faint: '#888',
+          soft: '#5a554a',
+          faint: '#8e887a',
+          muted: '#b6af9b',
+        },
+        rule: {
+          DEFAULT: '#e0d9c6',
+          strong: '#c9c0a8',
+          soft: '#ebe5d3',
         },
         accent: {
-          yellow: '#ffde59',
-          mint: '#6de0b6',
-          coral: '#ff6b6b',
-          'margin-red': '#d22828',
-          'line-blue': '#2848a0',
+          DEFAULT: '#2d4a3a',
+          soft: '#3d6149',
+          tint: '#e9f0ea',
+          line: '#b6c9b6',
         },
-        // Legacy aliases preserved so existing API stays compatible
-        background: 'var(--paper-bg)',
+        warning: {
+          DEFAULT: '#b86b2e',
+          tint: '#f5e4d2',
+        },
+        danger: {
+          DEFAULT: '#b03a3a',
+          tint: '#f3dada',
+        },
+        // Legacy aliases preserved for any third-party props that read them
+        background: 'var(--paper)',
         foreground: 'var(--ink)',
         primary: {
-          DEFAULT: '#1a1a1a',
-          hover: '#000000',
+          DEFAULT: '#2d4a3a',
+          hover: '#3d6149',
         },
         secondary: {
-          DEFAULT: '#ffde59',
-          hover: '#ffd633',
+          DEFAULT: '#1a1a1a',
+          hover: '#2c2c2c',
         },
-        border: '#1a1a1a',
-        input: '#fff',
+        border: '#e0d9c6',
+        input: '#ffffff',
       },
       animation: {
-        'fade-in': 'fadeIn 0.3s ease-in-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-        'slide-down': 'slideDown 0.3s ease-out',
-        'scale-in': 'scaleIn 0.2s ease-out',
-        'ink-in': 'inkAppear 0.3s ease-out',
-        'wobble': 'wobble 0.4s ease-in-out',
+        'fade-in': 'fadeIn 0.2s ease-out',
+        'slide-up': 'slideUp 0.25s ease-out',
+        'slide-down': 'slideDown 0.25s ease-out',
+        'scale-in': 'scaleIn 0.18s ease-out',
       },
       keyframes: {
         fadeIn: {
@@ -63,30 +71,17 @@ const config: Config = {
           '100%': { opacity: '1' },
         },
         slideUp: {
-          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '0%': { transform: 'translateY(8px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
         slideDown: {
-          '0%': { transform: 'translateY(-10px)', opacity: '0' },
+          '0%': { transform: 'translateY(-8px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
         scaleIn: {
-          '0%': { transform: 'scale(0.95)', opacity: '0' },
+          '0%': { transform: 'scale(0.97)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
-        inkAppear: {
-          '0%': { opacity: '0', transform: 'translateY(-3px) rotate(-1deg)' },
-          '100%': { opacity: '1', transform: 'translateY(0) rotate(0)' },
-        },
-        wobble: {
-          '0%, 100%': { transform: 'rotate(-0.3deg)' },
-          '50%': { transform: 'rotate(0.3deg)' },
-        },
-      },
-      boxShadow: {
-        'rough': '2px 2px 0 #1a1a1a',
-        'rough-lg': '4px 4px 0 #1a1a1a',
-        'rough-xl': '6px 6px 0 #1a1a1a',
       },
     },
   },

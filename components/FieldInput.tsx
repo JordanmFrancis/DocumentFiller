@@ -20,17 +20,18 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-2"
+      className="space-y-1.5"
     >
       {field.type === 'text' && (
         <input
           type="text"
           value={value || (field.defaultValue as string) || ''}
           onChange={handleChange}
-          className="input-rough"
-          placeholder={`write your ${(field.label || field.name).toLowerCase()}…`}
+          aria-invalid={!!error}
+          className="input"
+          placeholder={`Enter ${(field.label || field.name).toLowerCase()}`}
         />
       )}
 
@@ -39,7 +40,8 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
           type="date"
           value={value || (field.defaultValue as string) || ''}
           onChange={handleChange}
-          className="input-rough"
+          aria-invalid={!!error}
+          className="input"
         />
       )}
 
@@ -48,21 +50,22 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
           type="number"
           value={value ?? (field.defaultValue as number) ?? ''}
           onChange={handleChange}
-          className="input-rough"
-          placeholder={`enter a number…`}
+          aria-invalid={!!error}
+          className="input"
+          placeholder="Enter a number"
         />
       )}
 
       {field.type === 'checkbox' && (
-        <label className="flex items-center gap-3 cursor-pointer group">
+        <label className="flex items-center gap-2.5 cursor-pointer group select-none">
           <input
             type="checkbox"
             checked={!!(value ?? field.defaultValue ?? false)}
             onChange={handleChange}
-            className="checkbox-hand"
+            className="checkbox"
           />
-          <span className="font-cursive text-lg text-ink-soft group-hover:text-ink transition-colors">
-            {value || field.defaultValue ? 'yes — checked' : 'tick to enable'}
+          <span className="text-[14px] text-ink-soft group-hover:text-ink transition-colors">
+            {value || field.defaultValue ? 'Checked' : 'Click to check'}
           </span>
         </label>
       )}
@@ -71,9 +74,10 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
         <select
           value={value || (field.defaultValue as string) || ''}
           onChange={handleChange}
-          className="input-rough cursor-pointer"
+          aria-invalid={!!error}
+          className="input cursor-pointer"
         >
-          <option value="">— pick one —</option>
+          <option value="">— Select —</option>
           {field.options.map((option) => (
             <option key={option} value={option}>
               {option}
@@ -84,11 +88,11 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
 
       {error && (
         <motion.p
-          initial={{ opacity: 0, x: -8 }}
+          initial={{ opacity: 0, x: -4 }}
           animate={{ opacity: 1, x: 0 }}
-          className="font-cursive text-base text-accent-coral pl-1 italic"
+          className="text-[12.5px] text-danger"
         >
-          ⚠ {error}
+          {error}
         </motion.p>
       )}
     </motion.div>

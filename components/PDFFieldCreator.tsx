@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PDFField, PDFFieldType, PDFFieldPosition } from '@/types/pdf';
-import { X, Check, Type, Square, Circle, List, Calendar, Hash, Save, Trash2 } from 'lucide-react';
+import { X, Type, Square, Circle, List, Calendar, Hash, Save, Trash2, AlignLeft, PenTool } from 'lucide-react';
 
 interface PDFFieldCreatorProps {
   pdfFile: File | Blob | string;
@@ -12,20 +12,31 @@ interface PDFFieldCreatorProps {
 }
 
 interface FieldTemplate {
+  id: string;
   type: PDFFieldType;
   label: string;
+  meta: string;
   icon: React.ReactNode;
   defaultWidth: number;
   defaultHeight: number;
 }
 
+// Match the Counsel wireframe's field palette. "Paragraph", "Signature",
+// and "Initials" are surfaced as separate template ids but materialize as
+// existing PDFFieldType values so they behave correctly when written:
+//   - Paragraph → text (multi-line via larger default height)
+//   - Signature → text (rendered with a different label/hint)
+//   - Initials  → text (short)
 const FIELD_TEMPLATES: FieldTemplate[] = [
-  { type: 'text', label: 'Text Field', icon: <Type className="w-5 h-5" />, defaultWidth: 200, defaultHeight: 25 },
-  { type: 'checkbox', label: 'Checkbox', icon: <Square className="w-5 h-5" />, defaultWidth: 20, defaultHeight: 20 },
-  { type: 'radio', label: 'Radio Group', icon: <Circle className="w-5 h-5" />, defaultWidth: 20, defaultHeight: 20 },
-  { type: 'dropdown', label: 'Dropdown', icon: <List className="w-5 h-5" />, defaultWidth: 200, defaultHeight: 25 },
-  { type: 'date', label: 'Date', icon: <Calendar className="w-5 h-5" />, defaultWidth: 150, defaultHeight: 25 },
-  { type: 'number', label: 'Number', icon: <Hash className="w-5 h-5" />, defaultWidth: 150, defaultHeight: 25 },
+  { id: 'text',      type: 'text',     label: 'Text',      meta: 'Single line',     icon: <Type className="w-4 h-4" strokeWidth={1.7} />,      defaultWidth: 220, defaultHeight: 24 },
+  { id: 'paragraph', type: 'text',     label: 'Paragraph', meta: 'Multi-line',      icon: <AlignLeft className="w-4 h-4" strokeWidth={1.7} />, defaultWidth: 320, defaultHeight: 80 },
+  { id: 'date',      type: 'date',     label: 'Date',      meta: 'MM/DD/YYYY',      icon: <Calendar className="w-4 h-4" strokeWidth={1.7} />,  defaultWidth: 150, defaultHeight: 24 },
+  { id: 'number',    type: 'number',   label: 'Number',    meta: '0, 1, 2, …',      icon: <Hash className="w-4 h-4" strokeWidth={1.7} />,      defaultWidth: 130, defaultHeight: 24 },
+  { id: 'checkbox',  type: 'checkbox', label: 'Checkbox',  meta: 'Yes / no',        icon: <Square className="w-4 h-4" strokeWidth={1.7} />,    defaultWidth: 18,  defaultHeight: 18 },
+  { id: 'dropdown',  type: 'dropdown', label: 'Dropdown',  meta: 'Pick from list',  icon: <List className="w-4 h-4" strokeWidth={1.7} />,      defaultWidth: 200, defaultHeight: 24 },
+  { id: 'radio',     type: 'radio',    label: 'Radio',     meta: 'One of many',     icon: <Circle className="w-4 h-4" strokeWidth={1.7} />,    defaultWidth: 18,  defaultHeight: 18 },
+  { id: 'signature', type: 'text',     label: 'Signature', meta: 'Drawn or typed',  icon: <PenTool className="w-4 h-4" strokeWidth={1.7} />,   defaultWidth: 240, defaultHeight: 38 },
+  { id: 'initials',  type: 'text',     label: 'Initials',  meta: '2–3 letters',     icon: <Type className="w-4 h-4" strokeWidth={1.7} />,      defaultWidth: 60,  defaultHeight: 26 },
 ];
 
 export default function PDFFieldCreator({
@@ -33,7 +44,7 @@ export default function PDFFieldCreator({
   onFieldsCreated,
   onClose,
 }: PDFFieldCreatorProps) {
-  const [selectedFieldType, setSelectedFieldType] = useState<PDFFieldType | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [fields, setFields] = useState<PDFField[]>([]);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [scale, setScale] = useState(1.5);
@@ -207,36 +218,29 @@ export default function PDFFieldCreator({
       return;
     }
 
-    if (!selectedFieldType || !viewport || !pageSize.width || !pageSize.height) return;
+    if (!selectedTemplateId || !viewport || !pageSize.width || !pageSize.height) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    // Get mouse position relative to canvas
     const canvasX = e.clientX - rect.left;
     const canvasY = e.clientY - rect.top;
 
-    const template = FIELD_TEMPLATES.find(t => t.type === selectedFieldType);
+    const template = FIELD_TEMPLATES.find(t => t.id === selectedTemplateId);
     if (!template) return;
 
-    // Convert canvas coordinates directly to our top-left PDF coordinate system
-    // Both canvas and our system use top-left origin (Y increases downward)
-    // So we can convert directly without any Y-axis inversion
+    // Convert canvas → PDF top-left coords (both use top-left origin)
     const pdfX = (canvasX / viewport.width) * pageSize.width;
     const pdfY = (canvasY / viewport.height) * pageSize.height;
-    
-    // The click point should be the top-left corner of the field
-    // Since both use top-left origin, pdfY is already correct
-    const fieldY = pdfY;
 
     const newField: PDFField = {
       name: `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       label: template.label,
-      type: selectedFieldType,
+      type: template.type,
       position: {
         x: pdfX,
-        y: fieldY,
+        y: pdfY,
         width: template.defaultWidth,
         height: template.defaultHeight,
         page: currentPage - 1,
@@ -244,8 +248,7 @@ export default function PDFFieldCreator({
       required: false,
     };
 
-    // Add options for radio and dropdown
-    if (selectedFieldType === 'radio' || selectedFieldType === 'dropdown') {
+    if (template.type === 'radio' || template.type === 'dropdown') {
       newField.options = ['Option 1', 'Option 2', 'Option 3'];
     }
 
@@ -257,7 +260,7 @@ export default function PDFFieldCreator({
       options: newField.options,
       required: false,
     });
-    setSelectedFieldType(null); // Deselect after placing
+    setSelectedTemplateId(null);
   };
 
   // Handle field drag to move
@@ -495,44 +498,41 @@ export default function PDFFieldCreator({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm flex items-center justify-center p-4"
+        className="fixed inset-0 z-50 bg-ink/55 backdrop-blur-sm flex items-center justify-center p-4"
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.95, opacity: 0, rotate: 1 }}
-          animate={{ scale: 1, opacity: 1, rotate: 0 }}
-          exit={{ scale: 0.95, opacity: 0 }}
+          initial={{ scale: 0.97, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.97, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-paper border-2 border-ink rounded-lg shadow-rough-xl w-full max-w-7xl h-[92vh] flex flex-col relative"
+          className="bg-paper-card border border-rule rounded-xl shadow-2xl w-full max-w-[1400px] h-[92vh] flex flex-col overflow-hidden"
         >
-          {/* Tape on top */}
-          <div className="tape tape-pink" style={{ top: '-12px', left: '50%', marginLeft: '-35px', zIndex: 10 }} />
-
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b-2 border-ink bg-paper">
-            <div className="flex items-center gap-4">
-              <h2 className="font-marker text-xl text-ink squig">Create Form Fields</h2>
-              <span className="font-cursive text-base text-ink-soft">
-                {fields.length} field{fields.length !== 1 ? 's' : ''} created
+          <div className="flex items-center justify-between px-5 h-14 hairline bg-paper-card shrink-0">
+            <div className="flex items-center gap-3">
+              <h2 className="font-serif text-[17px] text-ink leading-none">Create form fields</h2>
+              <span className="text-[12.5px] text-ink-faint">
+                {fields.length} field{fields.length !== 1 ? 's' : ''} placed
               </span>
             </div>
             <div className="flex items-center gap-2">
               {numPages > 1 && (
-                <div className="flex items-center gap-1 rough-sm px-2 py-1 bg-white">
+                <div className="surface flex items-center gap-1 px-1.5 py-1">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="px-2 py-0.5 hover:bg-accent-yellow/40 rounded font-marker text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="p-1 hover:bg-paper-edge rounded text-ink disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ←
                   </button>
-                  <span className="font-marker text-ink text-sm min-w-[80px] text-center">
-                    Page {currentPage} / {numPages}
+                  <span className="text-[12.5px] text-ink min-w-[72px] text-center">
+                    Page {currentPage}/{numPages}
                   </span>
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(numPages, prev + 1))}
                     disabled={currentPage === numPages}
-                    className="px-2 py-0.5 hover:bg-accent-yellow/40 rounded font-marker text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="p-1 hover:bg-paper-edge rounded text-ink disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     →
                   </button>
@@ -541,16 +541,12 @@ export default function PDFFieldCreator({
               <button
                 onClick={handleSaveFields}
                 disabled={fields.length === 0}
-                className="btn-rough primary"
+                className="btn btn-primary btn-sm"
               >
-                <Save className="w-4 h-4" />
-                Save Fields
+                <Save className="w-3.5 h-3.5" />
+                Save fields
               </button>
-              <button
-                onClick={onClose}
-                className="btn-rough"
-                title="Close"
-              >
+              <button onClick={onClose} className="btn btn-ghost btn-sm" title="Close">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -558,140 +554,146 @@ export default function PDFFieldCreator({
 
           <div className="flex flex-1 overflow-hidden">
             {/* Field Type Toolbar */}
-            <div className="w-72 border-r-2 border-ink p-4 overflow-y-auto bg-paper-indexcard">
-              <h3 className="font-marker text-sm uppercase text-ink mb-3 squig inline-block">Field Types</h3>
-              <div className="space-y-2 mt-4">
-                {FIELD_TEMPLATES.map((template) => (
-                  <button
-                    key={template.type}
-                    onClick={() => {
-                      setSelectedFieldType(template.type);
-                      setEditingField(null);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md border-[1.5px] border-ink font-marker text-sm transition-all ${
-                      selectedFieldType === template.type
-                        ? 'bg-accent-yellow shadow-rough'
-                        : 'bg-white hover:bg-paper-legalpad shadow-rough'
-                    }`}
-                  >
-                    {template.icon}
-                    <span>{template.label}</span>
-                  </button>
-                ))}
-              </div>
+            <div className="w-72 hairline-t border-r border-rule overflow-y-auto bg-paper">
+              <div className="p-5">
+                <div className="eyebrow mb-3">Drag to add</div>
+                <div className="space-y-1.5">
+                  {FIELD_TEMPLATES.map((template) => (
+                    <button
+                      key={template.id}
+                      onClick={() => {
+                        setSelectedTemplateId(template.id);
+                        setEditingField(null);
+                      }}
+                      className="field-chip"
+                      data-selected={selectedTemplateId === template.id}
+                    >
+                      <span className="field-chip-icon">{template.icon}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block font-medium text-[13.5px] leading-tight">
+                          {template.label}
+                        </span>
+                        <span className="block field-chip-meta leading-tight mt-0.5">
+                          {template.meta}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
 
-              {/* Field Configuration Panel */}
-              {editingField && (
-                <div className="mt-6 pt-6 border-t-2 border-dashed border-ink/30">
-                  <h3 className="font-marker text-sm uppercase text-ink mb-3 squig inline-block">Field Settings</h3>
-                  <div className="space-y-3 mt-4">
-                    <div>
-                      <label className="font-cursive text-sm text-ink-soft mb-1 block">Field Name</label>
-                      <input
-                        type="text"
-                        value={fieldConfig.name}
-                        onChange={(e) => setFieldConfig({ ...fieldConfig, name: e.target.value })}
-                        className="input-rough text-sm py-1.5"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-cursive text-sm text-ink-soft mb-1 block">Label</label>
-                      <input
-                        type="text"
-                        value={fieldConfig.label}
-                        onChange={(e) => setFieldConfig({ ...fieldConfig, label: e.target.value })}
-                        className="input-rough text-sm py-1.5"
-                      />
-                    </div>
-                    {(fields.find(f => f.name === editingField)?.type === 'dropdown' ||
-                      fields.find(f => f.name === editingField)?.type === 'radio') && (
+                {/* Field Configuration Panel */}
+                {editingField && (
+                  <div className="mt-6 pt-6 hairline-t">
+                    <div className="eyebrow mb-3">Field settings</div>
+                    <div className="space-y-3">
                       <div>
-                        <label className="font-cursive text-sm text-ink-soft mb-1 block">Options (one per line)</label>
-                        <textarea
-                          value={fieldConfig.options?.join('\n') || ''}
-                          onChange={(e) => setFieldConfig({
-                            ...fieldConfig,
-                            options: e.target.value.split('\n').filter(o => o.trim()),
-                          })}
-                          rows={4}
-                          className="input-rough text-sm py-2 font-hand"
+                        <label className="field-label">Field name</label>
+                        <input
+                          type="text"
+                          value={fieldConfig.name}
+                          onChange={(e) => setFieldConfig({ ...fieldConfig, name: e.target.value })}
+                          className="input py-1.5 text-[13px]"
                         />
                       </div>
-                    )}
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={fieldConfig.required}
-                        onChange={(e) => setFieldConfig({ ...fieldConfig, required: e.target.checked })}
-                        className="checkbox-hand"
-                        style={{ width: 18, height: 18 }}
-                      />
-                      <span className="font-cursive text-base text-ink">Required field</span>
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleSaveFieldConfig}
-                        className="btn-rough primary flex-1 justify-center"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingField(null);
-                          setFieldConfig({ name: '', label: '', required: false });
-                        }}
-                        className="btn-rough"
-                      >
-                        Cancel
-                      </button>
+                      <div>
+                        <label className="field-label">Label</label>
+                        <input
+                          type="text"
+                          value={fieldConfig.label}
+                          onChange={(e) => setFieldConfig({ ...fieldConfig, label: e.target.value })}
+                          className="input py-1.5 text-[13px]"
+                        />
+                      </div>
+                      {(fields.find(f => f.name === editingField)?.type === 'dropdown' ||
+                        fields.find(f => f.name === editingField)?.type === 'radio') && (
+                        <div>
+                          <label className="field-label">Options (one per line)</label>
+                          <textarea
+                            value={fieldConfig.options?.join('\n') || ''}
+                            onChange={(e) => setFieldConfig({
+                              ...fieldConfig,
+                              options: e.target.value.split('\n').filter(o => o.trim()),
+                            })}
+                            rows={4}
+                            className="input py-2 text-[13px]"
+                          />
+                        </div>
+                      )}
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={fieldConfig.required}
+                          onChange={(e) => setFieldConfig({ ...fieldConfig, required: e.target.checked })}
+                          className="checkbox"
+                        />
+                        <span className="text-[13px] text-ink">Required field</span>
+                      </label>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={handleSaveFieldConfig} className="btn btn-primary btn-sm flex-1 justify-center">
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingField(null);
+                            setFieldConfig({ name: '', label: '', required: false });
+                          }}
+                          className="btn btn-outline btn-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Fields List */}
-              {fields.length > 0 && (
-                <div className="mt-6 pt-6 border-t-2 border-dashed border-ink/30">
-                  <h3 className="font-marker text-sm uppercase text-ink mb-3 squig inline-block">Created Fields</h3>
-                  <div className="space-y-2 max-h-64 overflow-y-auto mt-4">
-                    {fields.map((field) => (
-                      <div
-                        key={field.name}
-                        onClick={() => {
-                          setEditingField(field.name);
-                          setFieldConfig({
-                            name: field.name,
-                            label: field.label || '',
-                            options: field.options,
-                            defaultValue: field.defaultValue as string,
-                            required: field.required || false,
-                          });
-                        }}
-                        className={`p-2.5 rounded-md border-[1.5px] cursor-pointer transition-all ${
-                          editingField === field.name
-                            ? 'bg-accent-yellow border-ink shadow-rough'
-                            : 'bg-white border-ink/30 hover:border-ink hover:shadow-rough'
-                        }`}
-                      >
-                        <div className="font-marker text-sm text-ink">{field.label || field.name}</div>
-                        <div className="font-typewriter text-[10px] uppercase text-ink-faint">{field.type}</div>
-                      </div>
-                    ))}
+                {/* Fields List */}
+                {fields.length > 0 && (
+                  <div className="mt-6 pt-6 hairline-t">
+                    <div className="eyebrow mb-3">On this page</div>
+                    <div className="space-y-1 max-h-72 overflow-y-auto">
+                      {fields
+                        .filter((f) => f.position?.page === currentPage - 1)
+                        .map((field) => (
+                          <button
+                            key={field.name}
+                            onClick={() => {
+                              setEditingField(field.name);
+                              setFieldConfig({
+                                name: field.name,
+                                label: field.label || '',
+                                options: field.options,
+                                defaultValue: field.defaultValue as string,
+                                required: field.required || false,
+                              });
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-md border transition-colors flex items-center justify-between gap-2 ${
+                              editingField === field.name
+                                ? 'bg-accent-tint border-accent-line text-accent'
+                                : 'bg-paper-elev border-rule hover:border-ink-faint text-ink'
+                            }`}
+                          >
+                            <span className="text-[13px] truncate">{field.label || field.name}</span>
+                            <span className="font-mono text-[10.5px] text-ink-faint shrink-0">
+                              {field.type}
+                            </span>
+                          </button>
+                        ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* PDF Canvas Viewer */}
-            <div className="flex-1 bg-paper p-4 overflow-auto">
+            <div className="flex-1 bg-paper p-6 overflow-auto">
               {pdfDoc ? (
                 <div ref={containerRef} className="flex justify-center items-start">
                   <div className="relative inline-block">
                     <canvas
                       ref={canvasRef}
                       onClick={handleCanvasClick}
-                      className={`border-2 border-ink rounded-md shadow-rough-lg bg-white ${
-                        selectedFieldType ? 'cursor-crosshair' : 'cursor-default'
+                      className={`bg-white rounded-md shadow-lg ring-1 ring-rule ${
+                        selectedTemplateId ? 'cursor-crosshair' : 'cursor-default'
                       }`}
                     />
                     
@@ -717,12 +719,13 @@ export default function PDFFieldCreator({
                           style={{
                             ...style,
                             backgroundColor: isEditing
-                              ? 'rgba(255, 222, 89, 0.5)'
-                              : 'rgba(255, 222, 89, 0.22)',
+                              ? 'rgba(45, 74, 58, 0.22)'
+                              : 'rgba(45, 74, 58, 0.10)',
                             border: isEditing
-                              ? '2.5px solid #1a1a1a'
-                              : '2px dashed rgba(26,26,26,0.7)',
-                            boxShadow: isEditing ? '2px 2px 0 #1a1a1a' : 'none',
+                              ? '2px solid #2d4a3a'
+                              : '1.5px dashed rgba(45, 74, 58, 0.55)',
+                            boxShadow: isEditing ? '0 0 0 3px rgba(45, 74, 58, 0.18)' : 'none',
+                            borderRadius: '3px',
                             pointerEvents: 'auto',
                             cursor: 'move',
                           }}
@@ -749,7 +752,7 @@ export default function PDFFieldCreator({
                         >
                           {/* Resize handles */}
                           <div
-                            className="resize-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-ink rounded-full opacity-0 group-hover:opacity-100 cursor-se-resize border-2 border-white"
+                            className="resize-handle absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-accent rounded-full opacity-0 group-hover:opacity-100 cursor-se-resize ring-2 ring-paper-card"
                             onMouseDown={(e) => {
                               e.stopPropagation();
                               handleFieldResize(field.name, e, 'se');
@@ -762,13 +765,13 @@ export default function PDFFieldCreator({
                                   e.stopPropagation();
                                   handleDeleteField(field.name);
                                 }}
-                                className="delete-button absolute -top-2 -right-2 w-6 h-6 bg-accent-coral hover:bg-red-500 rounded-full border-[1.5px] border-ink flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 shadow-rough"
+                                className="delete-button absolute -top-2 -right-2 w-5 h-5 bg-paper-card border border-rule rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 shadow-md hover:bg-danger-tint hover:border-danger"
                               >
-                                <Trash2 className="w-3 h-3 text-ink" />
+                                <Trash2 className="w-2.5 h-2.5 text-danger" />
                               </button>
 
                               {/* Field label */}
-                              <div className="absolute -top-7 left-0 bg-ink text-white font-marker text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-rough">
+                              <div className="absolute -top-7 left-0 bg-ink text-paper-card text-[11.5px] font-medium px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 shadow-md">
                                 {field.label || field.name}
                               </div>
                             </div>
@@ -781,8 +784,8 @@ export default function PDFFieldCreator({
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-ink border-t-transparent mx-auto mb-3"></div>
-                    <p className="font-marker text-ink">loading PDF…</p>
+                    <div className="animate-spin rounded-full h-9 w-9 border-2 border-accent border-t-transparent mx-auto mb-3"></div>
+                    <p className="text-ink-soft text-[13px]">Loading PDF…</p>
                   </div>
                 </div>
               )}

@@ -3,24 +3,36 @@
 @tailwind utilities;
 
 /* ──────────────────────────────────────────────────────────
-   Hand-drawn paper notebook design system
-   Fonts loaded via <link> in layout.tsx
+   Counsel — flat ivory paper, deep-green signed-ink accent
+   Body: Inter   Headlines: Source Serif 4 (italic for emphasis)
+   Caption/mono: JetBrains Mono
    ────────────────────────────────────────────────────────── */
 
 :root {
-  --paper-bg: #efece4;
-  --paper-bg-2: #fdf6c7;
-  --manila: #e7d7a8;
-  --indexcard: #fbfbf4;
-  --ink: #1a1a1a;
-  --ink-soft: #4a4a4a;
-  --ink-faint: #888;
-  --margin-red: #d22828;
-  --line-blue: #2848a0;
-  --accent-yellow: #ffde59;
-  --accent-mint: #6de0b6;
-  --accent-coral: #ff6b6b;
-  --tape: rgba(255, 230, 120, 0.75);
+  --paper:        #f3eee0;
+  --paper-card:   #fbf8f0;
+  --paper-elev:   #ffffff;
+  --paper-edge:   #ede7d6;
+
+  --ink:          #1a1a1a;
+  --ink-soft:     #5a554a;
+  --ink-faint:    #8e887a;
+  --ink-muted:    #b6af9b;
+
+  --rule:         #e0d9c6;
+  --rule-strong:  #c9c0a8;
+  --rule-soft:    #ebe5d3;
+
+  --accent:       #2d4a3a;   /* signed-ink green */
+  --accent-soft:  #3d6149;
+  --accent-tint:  #e9f0ea;
+  --accent-line:  #b6c9b6;
+
+  --warning:      #b86b2e;   /* amber for in-progress progress bars */
+  --warning-tint: #f5e4d2;
+
+  --danger:       #b03a3a;
+  --danger-tint:  #f3dada;
 }
 
 * {
@@ -29,403 +41,471 @@
   margin: 0;
 }
 
-html,
-body {
+html, body {
   max-width: 100vw;
   overflow-x: hidden;
-  background: var(--paper-bg);
+  background: var(--paper);
   color: var(--ink);
-  font-family: 'Patrick Hand', 'Caveat', system-ui, sans-serif;
-  font-size: 16px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 15px;
+  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* ──────────────────────────────────────────────────────────
-   Font utilities
+   Typography utilities
    ────────────────────────────────────────────────────────── */
-.font-hand { font-family: 'Patrick Hand', system-ui, sans-serif; }
-.font-cursive { font-family: 'Caveat', cursive; }
-.font-marker { font-family: 'Kalam', cursive; font-weight: 700; }
-.font-typewriter { font-family: 'Special Elite', monospace; }
-.font-mono-hand { font-family: 'JetBrains Mono', monospace; }
-.font-serif-hand { font-family: 'Source Serif 4', Georgia, serif; }
+.font-serif { font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif; }
+.font-mono  { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
 
-/* ──────────────────────────────────────────────────────────
-   Paper / desk backgrounds
-   ────────────────────────────────────────────────────────── */
-.bg-paper {
-  background:
-    radial-gradient(circle at 20% 30%, rgba(0,0,0,.025) 0 1px, transparent 1px),
-    radial-gradient(circle at 70% 60%, rgba(0,0,0,.025) 0 1px, transparent 1px),
-    radial-gradient(circle at 40% 80%, rgba(0,0,0,.02) 0 1px, transparent 1px),
-    var(--paper-bg);
-  background-size: 7px 7px, 11px 11px, 9px 9px, auto;
-}
-
-.bg-legalpad {
-  background:
-    linear-gradient(to right, transparent 40px, rgba(210,40,40,.35) 40px 42px, transparent 42px),
-    repeating-linear-gradient(to bottom, transparent 0 27px, rgba(40,70,160,.22) 27px 28px),
-    var(--paper-bg-2);
-}
-
-.bg-manila {
-  background:
-    radial-gradient(1200px 400px at 50% -10%, rgba(0,0,0,.06), transparent 60%),
-    var(--manila);
-}
-
-.bg-indexcard {
-  background:
-    repeating-linear-gradient(to bottom, transparent 0 24px, rgba(180,60,60,.22) 24px 25px),
-    linear-gradient(to right, transparent 28px, rgba(180,60,60,.45) 28px 30px, transparent 30px),
-    var(--indexcard);
-}
-
-/* ──────────────────────────────────────────────────────────
-   Sketchy / rough borders
-   ────────────────────────────────────────────────────────── */
-.rough {
-  border: 1.5px solid var(--ink);
-  border-radius: 6px;
-  position: relative;
-  background: #fff;
-}
-.rough::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border: 1.5px solid var(--ink);
-  border-radius: 8px;
-  transform: rotate(-0.3deg);
-  opacity: 0.35;
-  pointer-events: none;
-}
-.rough-sm {
-  border: 1.5px solid var(--ink);
-  border-radius: 4px;
-  background: #fff;
-}
-
-/* Squiggly underline */
-.squig { position: relative; }
-.squig::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -5px;
-  height: 4px;
-  background: repeating-linear-gradient(135deg, transparent 0 2px, currentColor 2px 3px);
-  opacity: .55;
-  border-radius: 2px;
-}
-
-/* Hand-drawn pill */
-.pill-hand {
-  border: 1.5px solid currentColor;
-  border-radius: 999px;
-  padding: 4px 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-family: 'Kalam', cursive;
-  font-weight: 700;
-  background: #fff;
-}
-
-/* Hand-drawn buttons */
-.btn-rough {
-  border: 1.5px solid var(--ink);
-  background: #fff;
-  padding: 8px 14px;
-  border-radius: 10px;
-  font-family: 'Kalam', cursive;
-  font-weight: 700;
-  font-size: 14px;
-  box-shadow: 2px 2px 0 var(--ink);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  color: var(--ink);
-  transition: transform 0.08s ease, box-shadow 0.08s ease;
-  text-decoration: none;
-}
-.btn-rough:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--ink);
-}
-.btn-rough:active {
-  transform: translate(2px, 2px);
-  box-shadow: 0 0 0 var(--ink);
-}
-.btn-rough.primary { background: var(--accent-yellow); }
-.btn-rough.dark { background: var(--ink); color: #fff; box-shadow: 2px 2px 0 #777; }
-.btn-rough.dark:hover { box-shadow: 3px 3px 0 #777; }
-.btn-rough.dark:active { box-shadow: 0 0 0 #777; }
-.btn-rough.danger { background: #ffd1d1; }
-.btn-rough.success { background: var(--accent-mint); }
-.btn-rough:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-/* Tape decoration (absolute positioned) */
-.tape {
-  position: absolute;
-  background: var(--tape);
-  border: 1px solid rgba(0,0,0,.08);
-  width: 70px;
-  height: 22px;
-  transform: rotate(-4deg);
-  box-shadow: 0 2px 4px rgba(0,0,0,.12);
-  pointer-events: none;
-}
-.tape-blue {
-  background: rgba(135, 206, 235, 0.7);
-}
-.tape-pink {
-  background: rgba(255, 182, 193, 0.7);
-}
-
-/* Stamps */
-.stamp {
-  border: 2.5px solid currentColor;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-family: 'Special Elite', monospace;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  display: inline-block;
-  transform: rotate(-6deg);
-  opacity: .75;
+/* "GET STARTED" / "TAXPAYER" / etc — small caps tracking */
+.eyebrow {
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
 }
 
-/* Sticky note */
-.sticky-note {
-  background: #fef4a8;
-  padding: 14px 16px;
-  font-family: 'Caveat', cursive;
-  font-size: 16px;
-  line-height: 1.4;
-  color: #5a4a2a;
-  box-shadow: 0 2px 8px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
-  transform: rotate(-1.5deg);
-  border-radius: 2px;
+/* ──────────────────────────────────────────────────────────
+   Cards & surfaces
+   ────────────────────────────────────────────────────────── */
+.surface {
+  background: var(--paper-card);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
 }
 
-/* Cursor ink */
-.cursor-ink {
-  display: inline-block;
-  width: 2px;
-  height: 14px;
-  background: currentColor;
-  vertical-align: -2px;
-  animation: blink 1s steps(2) infinite;
+.surface-elev {
+  background: var(--paper-elev);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02), 0 4px 14px rgba(60, 50, 30, 0.06);
 }
-@keyframes blink { 50% { opacity: 0; } }
 
-/* Sketchy form input - underline style on legalpad */
-.input-hand {
+.hairline { border-bottom: 1px solid var(--rule); }
+.hairline-t { border-top: 1px solid var(--rule); }
+
+/* Subtle paper grain (used very sparingly) */
+.paper-grain {
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(0, 0, 0, 0.018) 0 1px, transparent 1px),
+    radial-gradient(circle at 70% 60%, rgba(0, 0, 0, 0.015) 0 1px, transparent 1px),
+    radial-gradient(circle at 40% 80%, rgba(0, 0, 0, 0.012) 0 1px, transparent 1px);
+  background-size: 9px 9px, 13px 13px, 11px 11px;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Buttons
+   ────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.12s ease;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--accent);
+  color: #fbf8f0;
+  border-color: var(--accent);
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent-soft); }
+
+.btn-dark {
+  background: var(--ink);
+  color: #fbf8f0;
+  border-color: var(--ink);
+}
+.btn-dark:hover:not(:disabled) { background: #2c2c2c; }
+
+.btn-outline {
+  background: var(--paper-elev);
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+.btn-outline:hover:not(:disabled) { background: var(--paper-edge); border-color: var(--ink-faint); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  border-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) { background: var(--paper-edge); color: var(--ink); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: transparent;
+}
+.btn-danger:hover:not(:disabled) { background: var(--danger-tint); }
+
+.btn-sm { padding: 5px 9px; font-size: 12.5px; gap: 5px; border-radius: 6px; }
+.btn-lg { padding: 11px 18px; font-size: 14px; gap: 9px; }
+
+/* Pill — used for filter tabs (All / Ready / In progress / Draft) */
+.tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.tab-pill:hover { background: var(--paper-edge); color: var(--ink); }
+.tab-pill[data-active="true"] {
+  background: var(--paper-elev);
+  border-color: var(--rule);
+  color: var(--ink);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Inputs
+   ────────────────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  background: var(--paper-elev);
+  border: 1px solid var(--rule-strong);
+  border-radius: 7px;
+  padding: 9px 12px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+}
+.input::placeholder { color: var(--ink-muted); }
+.input:hover { border-color: var(--ink-faint); }
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(45, 74, 58, 0.12);
+}
+.input[aria-invalid="true"] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(176, 58, 58, 0.10);
+}
+
+/* Underline-style input variant */
+.input-underline {
+  width: 100%;
   background: transparent;
   border: none;
-  border-bottom: 1.5px solid var(--ink);
-  padding: 6px 4px;
-  font-family: 'Caveat', 'Patrick Hand', cursive;
-  font-size: 18px;
-  color: var(--ink);
-  width: 100%;
-  outline: none;
+  border-bottom: 1px solid var(--rule-strong);
   border-radius: 0;
-}
-.input-hand:focus {
-  border-bottom: 2px solid var(--margin-red);
-  background: rgba(255, 222, 89, 0.15);
-}
-.input-hand::placeholder {
-  color: var(--ink-faint);
-  font-style: italic;
-}
-
-/* Boxed form input - rough border */
-.input-rough {
-  background: #fff;
-  border: 1.5px solid var(--ink);
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-family: 'Patrick Hand', system-ui, sans-serif;
-  font-size: 16px;
+  padding: 7px 2px;
+  font-size: 14px;
   color: var(--ink);
-  width: 100%;
   outline: none;
-  box-shadow: 2px 2px 0 var(--ink);
-  transition: box-shadow 0.08s ease, transform 0.08s ease;
+  transition: border-color 0.12s;
 }
-.input-rough:focus {
-  box-shadow: 3px 3px 0 var(--ink);
-  transform: translate(-1px, -1px);
-  background: #fffef7;
-}
-.input-rough::placeholder {
-  color: var(--ink-faint);
-  font-style: italic;
+.input-underline:focus { border-bottom-color: var(--accent); }
+
+/* Label */
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
 }
 
-/* Dashed placeholder image (when no PDF preview) */
-.ph-img {
-  background:
-    repeating-linear-gradient(135deg, rgba(0,0,0,.08) 0 4px, transparent 4px 10px),
-    #e8e4d6;
-  border: 1.5px dashed #666;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #666;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-}
-
-/* Card on paper background */
-.card-paper {
-  background: #fff;
-  border: 1.5px solid var(--ink);
-  border-radius: 8px;
-  box-shadow: 3px 3px 0 var(--ink);
-  position: relative;
-}
-.card-paper:hover {
-  box-shadow: 4px 4px 0 var(--ink);
-  transform: translate(-1px, -1px);
-}
-
-.card-manila {
-  background: var(--manila);
-  border: 1.5px solid var(--ink);
-  border-radius: 4px 4px 8px 8px;
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
-  position: relative;
-}
-.card-manila::before {
-  content: "";
-  position: absolute;
-  top: -8px;
-  left: 18px;
-  width: 60px;
-  height: 12px;
-  background: var(--manila);
-  border: 1.5px solid var(--ink);
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
-}
-
-/* Checkbox - sketchy square */
-.checkbox-hand {
-  width: 22px;
-  height: 22px;
-  border: 1.5px solid var(--ink);
-  border-radius: 4px;
-  background: #fff;
+/* Checkbox */
+.checkbox {
   appearance: none;
   -webkit-appearance: none;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  background: var(--paper-elev);
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
-  box-shadow: 1px 1px 0 var(--ink);
+  transition: background 0.12s, border-color 0.12s;
 }
-.checkbox-hand:checked {
-  background: var(--accent-yellow);
+.checkbox:hover { border-color: var(--ink-faint); }
+.checkbox:checked {
+  background: var(--accent);
+  border-color: var(--accent);
 }
-.checkbox-hand:checked::after {
-  content: "✓";
+.checkbox:checked::after {
+  content: "";
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -55%);
-  font-family: 'Kalam', cursive;
-  font-weight: 700;
-  font-size: 18px;
+  left: 5px;
+  top: 1.5px;
+  width: 5px;
+  height: 9px;
+  border: solid #fbf8f0;
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(45deg);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Progress bar (used in dashboard cards + form header)
+   ────────────────────────────────────────────────────────── */
+.progress {
+  width: 100%;
+  height: 3px;
+  background: var(--rule-soft);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.progress[data-tone="warning"] > span { background: var(--warning); }
+.progress[data-tone="muted"] > span { background: var(--ink-muted); }
+
+/* ──────────────────────────────────────────────────────────
+   Top nav
+   ────────────────────────────────────────────────────────── */
+.nav-link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  padding: 6px 4px;
+  border-bottom: 1.5px solid transparent;
+  transition: color 0.12s, border-color 0.12s;
+  cursor: pointer;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+.nav-link:hover { color: var(--ink); }
+.nav-link[data-active="true"] {
   color: var(--ink);
-  line-height: 1;
+  border-bottom-color: var(--accent);
 }
 
-/* Animations */
-@keyframes wobble {
-  0%, 100% { transform: rotate(-0.3deg); }
-  50% { transform: rotate(0.3deg); }
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  padding: 1px 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  background: var(--paper-elev);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  line-height: 1.4;
 }
 
-.wobble:hover { animation: wobble 0.4s ease-in-out; }
-
-@keyframes inkAppear {
-  from { opacity: 0; transform: translateY(-3px) rotate(-1deg); }
-  to { opacity: 1; transform: translateY(0) rotate(0); }
+/* Search bar */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--paper-elev);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  min-width: 240px;
 }
-.ink-in {
-  animation: inkAppear 0.3s ease-out;
+.search-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(45, 74, 58, 0.08);
 }
-
-/* Scrollbar - thin pencil-mark style */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-track {
+.search-box input {
+  flex: 1;
   background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--ink);
 }
+.search-box input::placeholder { color: var(--ink-muted); }
+
+/* Avatar circle */
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fbf8f0;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--accent);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Step indicator (Empty/First Run bottom: 1 Upload · 2 Detect · …)
+   ────────────────────────────────────────────────────────── */
+.step {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+.step-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--rule-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.step[data-active="true"] { color: var(--ink); }
+.step[data-active="true"] .step-num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fbf8f0;
+}
+.step[data-done="true"] .step-num {
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Drop zone (PDFUploader)
+   ────────────────────────────────────────────────────────── */
+.dropzone {
+  position: relative;
+  background: var(--paper-elev);
+  border: 1px dashed var(--rule-strong);
+  border-radius: 10px;
+  padding: 38px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover {
+  border-color: var(--ink-faint);
+  background: var(--paper-card);
+}
+.dropzone[data-dragging="true"] {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Document card (Dashboard)
+   ────────────────────────────────────────────────────────── */
+.doc-card {
+  background: var(--paper-elev);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.doc-card:hover {
+  border-color: var(--rule-strong);
+  box-shadow: 0 4px 16px rgba(60, 50, 30, 0.08);
+  transform: translateY(-1px);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Field-type chip used in PDFFieldCreator sidebar
+   ────────────────────────────────────────────────────────── */
+.field-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--paper-elev);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  font-size: 13.5px;
+  cursor: grab;
+  transition: border-color 0.12s, background 0.12s;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+  color: var(--ink);
+}
+.field-chip:hover { border-color: var(--ink-faint); }
+.field-chip[data-selected="true"] {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.field-chip-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--ink-soft);
+}
+.field-chip[data-selected="true"] .field-chip-icon { color: var(--accent); }
+.field-chip-meta {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+/* React-PDF preserved */
+.react-pdf__Page { display: inline-block; }
+.react-pdf__Page__canvas { display: block; max-width: 100%; height: auto; }
+.react-pdf__Page__textContent {
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  overflow: hidden; opacity: 0.2; line-height: 1;
+}
+.react-pdf__Page__annotations { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+
+/* Scrollbar — quiet */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(26, 26, 26, 0.25);
-  border-radius: 4px;
+  background: rgba(26, 26, 26, 0.16);
+  border-radius: 5px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(26, 26, 26, 0.5);
+  background: rgba(26, 26, 26, 0.32);
   background-clip: content-box;
 }
 
-/* React-PDF styles preserved */
-.react-pdf__Page {
-  display: inline-block;
-}
-.react-pdf__Page__canvas {
-  display: block;
-  max-width: 100%;
-  height: auto;
-}
-.react-pdf__Page__textContent {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  overflow: hidden;
-  opacity: 0.2;
-  line-height: 1;
-}
-.react-pdf__Page__annotations {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-}
-
 @layer utilities {
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
   .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .rotate-tiny-l { transform: rotate(-0.5deg); }
-  .rotate-tiny-r { transform: rotate(0.5deg); }
-  .rotate-small-l { transform: rotate(-1.5deg); }
-  .rotate-small-r { transform: rotate(1.5deg); }
 }

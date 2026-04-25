@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Edit2, Check, X } from 'lucide-react';
+import { Pencil, Check, X } from 'lucide-react';
 import { PDFField } from '@/types/pdf';
 
 interface FieldLabelEditorProps {
@@ -45,51 +45,43 @@ export default function FieldLabelEditor({ field, onLabelChange }: FieldLabelEdi
             if (e.key === 'Enter') handleSave();
             if (e.key === 'Escape') handleCancel();
           }}
-          className="flex-1 px-2 py-1 text-base bg-white border-b-2 border-margin-red font-marker text-ink focus:outline-none"
+          className="input py-1 px-2 text-[13px] flex-1"
           autoFocus
         />
         <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.94 }}
           onClick={handleSave}
-          className="p-1 rounded border-[1.5px] border-ink bg-accent-mint shadow-rough"
+          className="p-1 rounded-md text-accent hover:bg-accent-tint"
+          title="Save"
         >
-          <Check className="w-3.5 h-3.5 text-ink" strokeWidth={2.5} />
+          <Check className="w-3.5 h-3.5" strokeWidth={2.4} />
         </motion.button>
         <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.94 }}
           onClick={handleCancel}
-          className="p-1 rounded border-[1.5px] border-ink bg-accent-coral/40 shadow-rough"
+          className="p-1 rounded-md text-ink-faint hover:text-ink hover:bg-paper-edge"
+          title="Cancel"
         >
-          <X className="w-3.5 h-3.5 text-ink" strokeWidth={2.5} />
+          <X className="w-3.5 h-3.5" strokeWidth={2.4} />
         </motion.button>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2 group flex-1">
-      <span className="font-marker text-base text-ink">
+    <div className="flex items-center gap-1.5 group flex-1">
+      <span className="field-label !mb-0 !text-ink">
         {field.label || field.name}
       </span>
-      <motion.button
-        whileHover={{ scale: 1.15, rotate: -8 }}
-        whileTap={{ scale: 0.9 }}
+      <button
         onClick={() => setIsEditing(true)}
-        className="opacity-0 group-hover:opacity-100 p-1 text-ink-soft hover:text-ink transition-opacity"
+        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-ink-faint hover:text-ink hover:bg-paper-edge transition-opacity"
         title="Edit label"
       >
-        <Edit2 className="w-3.5 h-3.5" />
-      </motion.button>
-      {field.name !== (field.label || field.name) && (
-        <span
-          className="font-typewriter text-[10px] text-ink-faint uppercase tracking-wide"
-          title={`Internal name: ${field.name}`}
-        >
-          ({field.name})
-        </span>
-      )}
+        <Pencil className="w-3 h-3" />
+      </button>
     </div>
   );
 }

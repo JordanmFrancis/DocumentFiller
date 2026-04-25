@@ -29,8 +29,13 @@ interface OnboardingSlideshowProps {
   onComplete: () => void;
 }
 
-// Helper: image-with-fallback that matches the paper aesthetic
-function PaperImage({ src, alt, fallbackIcon, fallbackHint }: {
+// Image with graceful fallback for missing onboarding screenshots.
+function PreviewImage({
+  src,
+  alt,
+  fallbackIcon,
+  fallbackHint,
+}: {
   src: string;
   alt: string;
   fallbackIcon: React.ReactNode;
@@ -38,13 +43,12 @@ function PaperImage({ src, alt, fallbackIcon, fallbackHint }: {
 }) {
   return (
     <motion.div
-      initial={{ scale: 0.96, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ delay: 0.2 }}
-      className="rough p-3 bg-white relative"
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 }}
+      className="surface-elev p-2"
     >
-      <div className="tape" style={{ top: '-10px', left: '20px' }} />
-      <div className="relative w-full aspect-[4/3] rounded overflow-hidden bg-paper-indexcard">
+      <div className="relative w-full aspect-[4/3] rounded-md overflow-hidden bg-paper-edge">
         <img
           src={src}
           alt={alt}
@@ -52,18 +56,18 @@ function PaperImage({ src, alt, fallbackIcon, fallbackHint }: {
           onError={(e) => {
             const img = e.currentTarget;
             img.style.display = 'none';
-            const fallback = img.nextElementSibling as HTMLElement;
-            if (fallback) fallback.style.display = 'flex';
+            const fb = img.nextElementSibling as HTMLElement;
+            if (fb) fb.style.display = 'flex';
           }}
           onLoad={(e) => {
             const img = e.currentTarget;
-            const fallback = img.nextElementSibling as HTMLElement;
-            if (fallback) fallback.style.display = 'none';
+            const fb = img.nextElementSibling as HTMLElement;
+            if (fb) fb.style.display = 'none';
           }}
         />
-        <div className="ph-img absolute inset-0 flex-col">
-          <div className="text-ink mb-3">{fallbackIcon}</div>
-          <p className="font-cursive text-base text-ink-soft">{fallbackHint}</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-ink-faint">
+          <div className="mb-2.5">{fallbackIcon}</div>
+          <p className="text-[12px]">{fallbackHint}</p>
         </div>
       </div>
     </motion.div>
@@ -77,287 +81,205 @@ export default function OnboardingSlideshow({ onComplete }: OnboardingSlideshowP
   const slides: Slide[] = [
     {
       id: 0,
-      title: 'Welcome to Document Filler',
-      description: 'Upload, fill, download — like filling out a paper form, but on screen.',
-      icon: <FileText className="w-12 h-12 text-ink" strokeWidth={1.5} />,
+      title: 'Any PDF, filled in minutes',
+      description: 'Upload a PDF, get a clean form, download the finished document.',
+      icon: <FileText className="w-5 h-5" strokeWidth={1.6} />,
       content: (
-        <div className="space-y-4">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-            className="rough bg-paper-legalpad p-10 text-center relative"
-          >
-            <div className="tape tape-pink" style={{ top: '-12px', left: '50%', marginLeft: '-35px' }} />
-            <div className="text-7xl mb-4">📄</div>
-            <h3 className="font-marker text-2xl text-ink mb-2">Smart PDF Processing</h3>
-            <p className="font-cursive text-lg text-ink-soft">
-              detect form fields, fill them in, download the finished file
-            </p>
-          </motion.div>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="surface-elev py-12 px-6 text-center"
+        >
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-accent-tint mb-4">
+            <FileText className="w-6 h-6 text-accent" strokeWidth={1.5} />
+          </div>
+          <h3 className="font-serif text-[24px] text-ink mb-2 leading-tight">
+            Upload &middot; Detect &middot; Fill &middot; Download
+          </h3>
+          <p className="text-ink-soft text-[14px] max-w-sm mx-auto">
+            Counsel detects fields automatically — or lets you draw your own. Fill once, save the document, fill again later.
+          </p>
+        </motion.div>
       ),
     },
     {
       id: 1,
-      title: 'Secure Sign-in',
-      description: 'Sign in with Google, Apple, or Email. Your documents are private.',
-      icon: <LogIn className="w-12 h-12 text-ink" strokeWidth={1.5} />,
+      title: 'Secure sign-in',
+      description: 'Sign in with Google, Apple, or email. Your documents stay private.',
+      icon: <LogIn className="w-5 h-5" strokeWidth={1.6} />,
       content: (
-        <PaperImage
+        <PreviewImage
           src="/images/onboarding/login.png"
           alt="Login screen"
-          fallbackIcon={<LogIn className="w-12 h-12" />}
-          fallbackHint="add login.png to public/images/onboarding/"
+          fallbackIcon={<LogIn className="w-10 h-10" strokeWidth={1.4} />}
+          fallbackHint="Add login.png to public/images/onboarding/"
         />
       ),
     },
     {
       id: 2,
-      title: 'Upload Your PDF',
-      description: 'Drop a PDF — the app finds form fields automatically.',
-      icon: <Upload className="w-12 h-12 text-ink" strokeWidth={1.5} />,
+      title: 'Upload your PDF',
+      description: 'Drop a PDF and Counsel detects the fields automatically.',
+      icon: <Upload className="w-5 h-5" strokeWidth={1.6} />,
       content: (
-        <div className="space-y-4">
-          <PaperImage
+        <div className="space-y-3">
+          <PreviewImage
             src="/images/onboarding/upload.png"
             alt="Upload screen"
-            fallbackIcon={<Upload className="w-12 h-12" />}
-            fallbackHint="add upload.png to public/images/onboarding/"
+            fallbackIcon={<Upload className="w-10 h-10" strokeWidth={1.4} />}
+            fallbackHint="Add upload.png to public/images/onboarding/"
           />
-          <motion.div
-            initial={{ y: 8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="rough-sm bg-accent-yellow/40 p-3 flex items-center gap-2"
-          >
-            <Sparkles className="w-4 h-4 text-ink" />
-            <span className="font-marker text-sm text-ink">
-              enable AI labeling for smart field names
+          <div className="surface px-4 py-3 flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-accent shrink-0" />
+            <span className="text-[13px] text-ink-soft">
+              Enable AI labeling for friendly field names
             </span>
-          </motion.div>
+          </div>
         </div>
       ),
     },
     {
       id: 3,
-      title: 'AI-Powered Labels',
-      description: 'Optional: let AI generate friendly field labels from PDF context.',
-      icon: <Sparkles className="w-12 h-12 text-ink" strokeWidth={1.5} />,
+      title: 'AI-generated labels',
+      description: 'Optional: let AI read the PDF and write friendly labels for each field.',
+      icon: <Sparkles className="w-5 h-5" strokeWidth={1.6} />,
       content: (
-        <div className="space-y-4">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="rough bg-white p-6 relative"
-          >
-            <div className="flex items-center gap-4 mb-4">
-              <motion.div
-                animate={{ rotate: [0, 360] }}
-                transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
-              >
-                <Sparkles className="w-10 h-10 text-ink" />
-              </motion.div>
-              <div className="flex-1 space-y-2">
-                <div className="h-3 bg-accent-yellow/60 rounded-full w-full"></div>
-                <div className="h-2.5 bg-accent-yellow/40 rounded-full w-3/4"></div>
-              </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="surface-elev p-6"
+        >
+          <div className="flex items-center gap-4 mb-4">
+            <motion.div
+              animate={{ rotate: [0, 360] }}
+              transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
+              className="w-10 h-10 rounded-full bg-accent-tint flex items-center justify-center shrink-0"
+            >
+              <Sparkles className="w-5 h-5 text-accent" />
+            </motion.div>
+            <div className="flex-1 space-y-2">
+              <div className="h-2.5 bg-accent/20 rounded-full w-full" />
+              <div className="h-2 bg-accent/12 rounded-full w-3/4" />
             </div>
-            <div className="space-y-2">
-              <div className="h-2 border-b border-dashed border-ink/30 w-full"></div>
-              <div className="h-2 border-b border-dashed border-ink/30 w-5/6"></div>
-              <div className="h-2 border-b border-dashed border-ink/30 w-4/6"></div>
-            </div>
-          </motion.div>
-          <motion.div
-            initial={{ x: -10, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="rough-sm p-3 bg-accent-mint/30 flex items-center gap-2"
-          >
-            <div className="w-2 h-2 rounded-full bg-accent-mint border border-ink animate-pulse"></div>
-            <span className="font-marker text-sm text-ink">
-              AI analyzing document context…
-            </span>
-          </motion.div>
-        </div>
+          </div>
+          <div className="space-y-2 mb-4">
+            <div className="h-1.5 border-b border-rule w-full" />
+            <div className="h-1.5 border-b border-rule w-5/6" />
+            <div className="h-1.5 border-b border-rule w-4/6" />
+          </div>
+          <div className="flex items-center gap-2 pt-2 hairline-t">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+            <span className="text-[12.5px] text-ink-soft">Reading document context…</span>
+          </div>
+        </motion.div>
       ),
     },
     {
       id: 4,
-      title: 'Organized Form Fields',
-      description: 'All detected fields are sorted by document order. Fill them out neatly.',
-      icon: <FileText className="w-12 h-12 text-ink" strokeWidth={1.5} />,
+      title: 'A clean form',
+      description: 'All detected fields, sorted by document order, ready to fill.',
+      icon: <FileText className="w-5 h-5" strokeWidth={1.6} />,
       content: (
-        <div className="space-y-4">
-          <PaperImage
-            src="/images/onboarding/form-fields.png"
-            alt="Form interface"
-            fallbackIcon={<FileText className="w-12 h-12" />}
-            fallbackHint="add form-fields.png to public/images/onboarding/"
-          />
-          <motion.div
-            initial={{ y: 8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="rough-sm p-3 bg-accent-yellow/30 flex items-center gap-2"
-          >
-            <div className="w-2 h-2 rounded-full bg-accent-mint border border-ink animate-pulse"></div>
-            <span className="font-marker text-sm text-ink">
-              fields sorted by document order
-            </span>
-          </motion.div>
-        </div>
+        <PreviewImage
+          src="/images/onboarding/form-fields.png"
+          alt="Form interface"
+          fallbackIcon={<FileText className="w-10 h-10" strokeWidth={1.4} />}
+          fallbackHint="Add form-fields.png to public/images/onboarding/"
+        />
       ),
     },
     {
       id: 5,
-      title: 'Edit Field Labels',
-      description: 'Click any label to rename it, or open the PDF viewer to edit visually.',
-      icon: <Edit className="w-12 h-12 text-ink" strokeWidth={1.5} />,
+      title: 'Edit field labels',
+      description: 'Click any label to rename, or use the PDF viewer to edit visually.',
+      icon: <Edit className="w-5 h-5" strokeWidth={1.6} />,
       content: (
-        <div className="space-y-4">
-          <PaperImage
+        <div className="space-y-3">
+          <PreviewImage
             src="/images/onboarding/pdf-editor.png"
-            alt="PDF editor with field overlays"
-            fallbackIcon={<Edit className="w-12 h-12" />}
-            fallbackHint="add pdf-editor.png to public/images/onboarding/"
+            alt="PDF editor"
+            fallbackIcon={<Edit className="w-10 h-10" strokeWidth={1.4} />}
+            fallbackHint="Add pdf-editor.png to public/images/onboarding/"
           />
-          <motion.div
-            initial={{ y: 8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="rough-sm p-3 bg-accent-yellow/30 flex items-center gap-2"
-          >
-            <Pencil className="w-4 h-4 text-ink" />
-            <span className="font-marker text-sm text-ink">
-              click directly on fields in the PDF to rename
+          <div className="surface px-4 py-3 flex items-center gap-2.5">
+            <Pencil className="w-4 h-4 text-ink-soft shrink-0" />
+            <span className="text-[13px] text-ink-soft">
+              Click directly on fields in the PDF to rename
             </span>
-          </motion.div>
+          </div>
         </div>
       ),
     },
     {
       id: 6,
-      title: 'Find Fields in PDF',
+      title: 'Find any field',
       description: 'Click the eye icon next to any field to jump to it in the PDF viewer.',
-      icon: <Eye className="w-12 h-12 text-ink" strokeWidth={1.5} />,
+      icon: <Eye className="w-5 h-5" strokeWidth={1.6} />,
       content: (
-        <div className="space-y-4">
-          <PaperImage
-            src="/images/onboarding/field-highlight.png"
-            alt="Highlighted field"
-            fallbackIcon={<Eye className="w-12 h-12" />}
-            fallbackHint="add field-highlight.png to public/images/onboarding/"
-          />
-          <motion.div
-            initial={{ y: 8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="rough-sm p-3 bg-accent-mint/30 flex items-center gap-2"
-          >
-            <div className="w-2 h-2 rounded-full bg-accent-mint border border-ink animate-pulse"></div>
-            <span className="font-marker text-sm text-ink">
-              field highlighted &amp; scrolled into view
-            </span>
-          </motion.div>
-        </div>
+        <PreviewImage
+          src="/images/onboarding/field-highlight.png"
+          alt="Field highlight"
+          fallbackIcon={<Eye className="w-10 h-10" strokeWidth={1.4} />}
+          fallbackHint="Add field-highlight.png to public/images/onboarding/"
+        />
       ),
     },
     {
       id: 7,
-      title: 'Save & Reuse',
-      description: 'Save PDFs with custom labels. Come back any time to fill them out again.',
-      icon: <Save className="w-12 h-12 text-ink" strokeWidth={1.5} />,
+      title: 'Save and reuse',
+      description: 'Keep PDFs with custom labels. Come back any time to fill them again.',
+      icon: <Save className="w-5 h-5" strokeWidth={1.6} />,
       content: (
-        <div className="space-y-4">
-          <motion.div
-            initial={{ y: 12, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="rough bg-white p-5 relative"
-          >
-            <div className="tape" style={{ top: '-10px', left: '24px' }} />
-            <div className="space-y-2.5">
-              {[1, 2, 3].map((i) => (
-                <motion.div
-                  key={i}
-                  initial={{ x: -16, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.1 * i }}
-                  className="flex items-center gap-3 p-3 rough-sm bg-paper-legalpad"
-                >
-                  <FileText className="w-7 h-7 text-ink" strokeWidth={1.5} />
-                  <div className="flex-1">
-                    <div className="font-marker text-sm text-ink">document_{i}.pdf</div>
-                    <div className="font-cursive text-xs text-ink-soft">edited yesterday</div>
-                  </div>
-                  <span className="font-typewriter text-[10px] text-ink-faint uppercase">
-                    {172 - i * 12} fields
-                  </span>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="rough-sm p-3 bg-accent-yellow/30 flex items-center gap-2"
-          >
-            <Save className="w-4 h-4 text-ink" />
-            <span className="font-marker text-sm text-ink">
-              saved securely in the cloud
-            </span>
-          </motion.div>
+        <div className="space-y-2.5">
+          {[
+            { name: 'Residential Purchase Agreement.pdf', meta: '24/27 fields · 2h ago', progress: 0.89 },
+            { name: 'W-9 Request for Taxpayer ID.pdf', meta: '8/8 fields · today', progress: 1 },
+            { name: 'Standard Lease Agreement.pdf', meta: '22/22 fields · yesterday', progress: 1 },
+          ].map((doc, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.05 * i }}
+              className="surface-elev p-3 flex items-center gap-3"
+            >
+              <FileText className="w-4 h-4 text-ink-soft shrink-0" strokeWidth={1.5} />
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-medium text-ink truncate">{doc.name}</div>
+                <div className="text-[11.5px] text-ink-faint">{doc.meta}</div>
+              </div>
+              <div className="w-20 progress shrink-0">
+                <span style={{ width: `${doc.progress * 100}%` }} />
+              </div>
+            </motion.div>
+          ))}
         </div>
       ),
     },
     {
       id: 8,
-      title: 'Generate Filled PDF',
-      description: 'When you\'re ready, generate a completed PDF with all your data filled in.',
-      icon: <Download className="w-12 h-12 text-ink" strokeWidth={1.5} />,
+      title: 'Download the filled PDF',
+      description: 'Generate a finished PDF with all your data filled in.',
+      icon: <Download className="w-5 h-5" strokeWidth={1.6} />,
       content: (
-        <div className="space-y-4">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="rough bg-white p-5 relative"
-          >
-            <div className="space-y-3 mb-4">
-              <div className="bg-paper-legalpad rounded p-4">
-                <div className="space-y-2">
-                  <div className="h-2 border-b border-dashed border-ink/40 w-full"></div>
-                  <div className="h-2 border-b border-dashed border-ink/40 w-3/4"></div>
-                  <div className="rough-sm bg-accent-yellow/30 mt-3 px-3 py-2">
-                    <span className="font-cursive text-base text-ink">filled value</span>
-                  </div>
-                </div>
-              </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="surface-elev p-6 space-y-4"
+        >
+          <div className="bg-paper rounded-md p-4 space-y-2 ring-1 ring-rule">
+            <div className="h-1.5 border-b border-rule w-full" />
+            <div className="h-1.5 border-b border-rule w-3/4" />
+            <div className="bg-accent-tint border border-accent-line rounded mt-3 px-3 py-1.5 text-[12.5px] text-accent">
+              Filled value
             </div>
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="btn-rough primary w-full justify-center py-3"
-            >
-              <Download className="w-5 h-5" />
-              Generate PDF
-            </motion.div>
-          </motion.div>
-          <motion.div
-            initial={{ y: 8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="rough-sm p-3 bg-accent-mint/30 flex items-center gap-2"
-          >
-            <div className="w-2 h-2 rounded-full bg-accent-mint border border-ink animate-pulse"></div>
-            <span className="font-marker text-sm text-ink">
-              PDF generated and ready to download
-            </span>
-          </motion.div>
-        </div>
+          </div>
+          <button className="btn btn-primary w-full justify-center py-2.5">
+            <Download className="w-4 h-4" />
+            Download PDF
+          </button>
+        </motion.div>
       ),
     },
   ];
@@ -373,9 +295,7 @@ export default function OnboardingSlideshow({ onComplete }: OnboardingSlideshowP
 
   const prevSlide = () => {
     setDirection(-1);
-    if (currentSlide > 0) {
-      setCurrentSlide(currentSlide - 1);
-    }
+    if (currentSlide > 0) setCurrentSlide(currentSlide - 1);
   };
 
   const goToSlide = (index: number) => {
@@ -384,15 +304,9 @@ export default function OnboardingSlideshow({ onComplete }: OnboardingSlideshowP
   };
 
   const slideVariants = {
-    enter: (direction: number) => ({
-      x: direction > 0 ? 200 : -200,
-      opacity: 0,
-    }),
+    enter: (d: number) => ({ x: d > 0 ? 80 : -80, opacity: 0 }),
     center: { x: 0, opacity: 1 },
-    exit: (direction: number) => ({
-      x: direction < 0 ? 200 : -200,
-      opacity: 0,
-    }),
+    exit: (d: number) => ({ x: d < 0 ? 80 : -80, opacity: 0 }),
   };
 
   return (
@@ -400,34 +314,31 @@ export default function OnboardingSlideshow({ onComplete }: OnboardingSlideshowP
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-ink/55 backdrop-blur-sm flex items-center justify-center p-4"
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0, rotate: -1 }}
-        animate={{ scale: 1, opacity: 1, rotate: 0 }}
-        className="bg-paper border-2 border-ink rounded-lg shadow-rough-xl w-full max-w-3xl max-h-[92vh] flex flex-col relative"
+        initial={{ scale: 0.97, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-paper-card border border-rule rounded-xl shadow-2xl w-full max-w-[640px] max-h-[92vh] flex flex-col overflow-hidden"
       >
-        {/* Tape on top */}
-        <div className="tape" style={{ top: '-12px', left: '50%', marginLeft: '-35px', zIndex: 10 }} />
-
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b-2 border-ink">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-12 h-12 rounded-md border-[1.5px] border-ink bg-accent-yellow flex items-center justify-center shadow-rough rotate-tiny-l shrink-0">
+        <div className="flex items-start justify-between px-6 py-5 hairline">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-md bg-accent-tint text-accent flex items-center justify-center shrink-0 mt-0.5">
               {slides[currentSlide].icon}
             </div>
             <div className="min-w-0">
-              <h2 className="font-marker text-xl text-ink leading-tight squig inline-block">
+              <h2 className="font-serif text-[19px] text-ink leading-tight">
                 {slides[currentSlide].title}
               </h2>
-              <p className="font-cursive text-base text-ink-soft mt-1.5">
+              <p className="text-ink-soft text-[13.5px] mt-1">
                 {slides[currentSlide].description}
               </p>
             </div>
           </div>
           <button
             onClick={onComplete}
-            className="btn-rough shrink-0 ml-4"
+            className="btn btn-ghost btn-sm shrink-0 ml-3"
             title="Skip tutorial"
           >
             <X className="w-4 h-4" />
@@ -444,7 +355,7 @@ export default function OnboardingSlideshow({ onComplete }: OnboardingSlideshowP
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.2 }}
             >
               {slides[currentSlide].content}
             </motion.div>
@@ -452,45 +363,40 @@ export default function OnboardingSlideshow({ onComplete }: OnboardingSlideshowP
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t-2 border-ink bg-paper">
-          {/* Progress dots */}
+        <div className="px-6 py-4 hairline-t bg-paper-card">
           <div className="flex items-center justify-center gap-1.5 mb-4">
             {slides.map((_, index) => (
               <button
                 key={index}
                 onClick={() => goToSlide(index)}
-                className={`h-2.5 rounded-full transition-all border border-ink ${
+                className={`h-1.5 rounded-full transition-all ${
                   index === currentSlide
-                    ? 'w-8 bg-accent-yellow'
-                    : 'w-2.5 bg-white hover:bg-accent-yellow/30'
+                    ? 'w-6 bg-accent'
+                    : 'w-1.5 bg-rule-strong hover:bg-ink-faint'
                 }`}
               />
             ))}
           </div>
 
-          {/* Navigation */}
           <div className="flex items-center justify-between">
             <button
               onClick={prevSlide}
               disabled={currentSlide === 0}
-              className="btn-rough"
+              className="btn btn-ghost btn-sm"
             >
               <ChevronLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Previous</span>
+              Previous
             </button>
 
             <button
               onClick={onComplete}
-              className="font-cursive text-base text-ink-soft hover:text-ink underline decoration-dashed underline-offset-4"
+              className="text-[13px] text-ink-faint hover:text-ink transition-colors"
             >
               Skip
             </button>
 
-            <button
-              onClick={nextSlide}
-              className="btn-rough primary"
-            >
-              {currentSlide === slides.length - 1 ? 'Get Started' : 'Next'}
+            <button onClick={nextSlide} className="btn btn-primary btn-sm">
+              {currentSlide === slides.length - 1 ? 'Get started' : 'Next'}
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
