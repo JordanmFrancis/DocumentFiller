@@ -61,9 +61,9 @@ export default function LoginForm() {
         transition={{ duration: 0.35 }}
         className="w-full max-w-[400px]"
       >
-        {/* Brand */}
+        {/* Brand — logo tilts on hover */}
         <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="w-9 h-9 rounded-md bg-accent text-paper-card flex items-center justify-center font-serif text-xl leading-none">
+          <div className="co-ico co-ico-tilt w-9 h-9 rounded-md bg-accent text-paper-card flex items-center justify-center font-serif text-xl leading-none cursor-pointer">
             C
           </div>
           <span className="font-serif text-[22px] text-ink leading-none">Counsel</span>

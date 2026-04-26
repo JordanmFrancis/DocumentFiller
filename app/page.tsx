@@ -14,7 +14,6 @@ import { fillPDF } from '@/lib/pdfFiller';
 import { uploadPDF, downloadPDF } from '@/lib/firestore/storage';
 import { saveDocument, getUserDocuments, deleteDocument, updateDocument } from '@/lib/firestore/documents';
 import {
-  Download,
   Save,
   Loader2,
   Eye,
@@ -492,11 +491,11 @@ export default function HomePage() {
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={handleNewDocument} className="btn btn-outline">
-                  <ArrowUp className="w-3.5 h-3.5" />
+                  <ArrowUp className="co-ico co-ico-import w-3.5 h-3.5" />
                   Import
                 </button>
                 <button onClick={handleNewDocument} className="btn btn-dark">
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="co-ico co-ico-plus w-3.5 h-3.5" />
                   New document
                 </button>
               </div>
@@ -515,11 +514,23 @@ export default function HomePage() {
       {viewMode === 'upload' && (
         <main className="max-w-[640px] mx-auto px-8 py-16">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="eyebrow mb-3">Get started</div>
-            <h1 className="font-serif text-[44px] leading-[1.05] text-ink mb-3">
-              Any PDF, filled in <em className="font-serif italic">minutes</em>.
+            <div className="eyebrow mb-3 co-enter" style={{ color: 'var(--accent)' }}>
+              Get started
+            </div>
+            <h1
+              className="font-serif text-[44px] leading-[1.05] text-ink mb-3 co-enter"
+              style={{ animationDelay: '0.05s' }}
+            >
+              Any PDF, filled in{' '}
+              <em className="font-serif italic" style={{ color: 'var(--accent)' }}>
+                minutes
+              </em>
+              .
             </h1>
-            <p className="text-ink-soft text-[15px] leading-relaxed mb-8 max-w-[500px]">
+            <p
+              className="text-ink-soft text-[15px] leading-relaxed mb-8 max-w-[500px] co-enter"
+              style={{ animationDelay: '0.1s' }}
+            >
               Drop a PDF. Counsel detects the fields (or lets you draw your own), then gives you a clean form. Fill once, download the finished document.
             </p>
 
@@ -622,9 +633,11 @@ export default function HomePage() {
                 return (
                   <span
                     key={stage}
+                    // Currently-running tier breathes a soft green ring so
+                    // it's obvious which detector is firing right now.
                     className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors ${
                       isCurrent
-                        ? 'bg-accent text-paper-card border-accent'
+                        ? 'bg-accent text-paper-card border-accent co-pill-breath'
                         : isPast
                         ? 'bg-accent-tint text-accent border-accent-line'
                         : 'bg-paper-elev text-ink-faint border-rule'
@@ -655,9 +668,9 @@ export default function HomePage() {
                   setActiveFieldName(null);
                   setViewMode('list');
                 }}
-                className="text-[12.5px] text-ink-faint hover:text-ink flex items-center gap-1 mb-3 transition-colors"
+                className="co-back text-[12.5px] text-ink-faint hover:text-ink flex items-center gap-1 mb-3 transition-colors"
               >
-                <ArrowLeft className="w-3 h-3" />
+                <ArrowLeft className="co-ico co-ico-back w-3 h-3" />
                 Documents
               </button>
               <h1 className="font-serif text-[22px] text-ink leading-tight mb-3">{filename}</h1>
@@ -671,10 +684,16 @@ export default function HomePage() {
                 </span>
               </div>
               <div className="flex items-center gap-3">
+                {/* Shimmering progress fill while filling, solid green once complete */}
                 <div className="progress flex-1">
-                  <span style={{ width: `${totalFields ? (filledFieldCount / totalFields) * 100 : 0}%` }} />
+                  <span
+                    className={
+                      filledFieldCount > 0 && filledFieldCount < totalFields ? 'co-shim' : ''
+                    }
+                    style={{ width: `${totalFields ? (filledFieldCount / totalFields) * 100 : 0}%` }}
+                  />
                 </div>
-                <span className="text-[12px] text-ink-faint tabular-nums">
+                <span className="font-mono text-[11.5px] text-ink-faint tabular-nums">
                   {filledFieldCount}/{totalFields}
                 </span>
               </div>
@@ -695,10 +714,10 @@ export default function HomePage() {
 
             {/* Form footer — fixed */}
             <div className="hairline-t px-7 py-4 flex items-center justify-between gap-3 bg-paper-card shrink-0">
-              <div className="flex items-center gap-2 text-[12.5px] text-ink-faint">
+              <div className="flex items-center gap-2 text-[12.5px] text-ink-faint font-mono">
                 {autoSavedAt ? (
                   <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                    <span className="co-ico-pulse w-1.5 h-1.5 rounded-full bg-accent" />
                     auto-saved
                   </>
                 ) : (
@@ -714,7 +733,7 @@ export default function HomePage() {
                   className="btn btn-ghost btn-sm"
                   title="Edit field labels visually"
                 >
-                  <Eye className="w-3.5 h-3.5" />
+                  <Eye className="co-ico co-ico-wiggle w-3.5 h-3.5" />
                   Edit labels
                 </button>
                 {selectedFile && (
@@ -723,16 +742,23 @@ export default function HomePage() {
                     className="btn btn-ghost btn-sm"
                     title="Add or edit fields"
                   >
-                    <PenLine className="w-3.5 h-3.5" />
+                    <PenLine className="co-ico co-ico-pencil w-3.5 h-3.5" />
                     Add fields
                   </button>
                 )}
                 {!currentDocument && (
                   <button onClick={handleSaveDocument} disabled={processing} className="btn btn-outline btn-sm">
-                    <Save className="w-3.5 h-3.5" />
+                    <Save className="co-ico co-ico-bounce w-3.5 h-3.5" />
                     Save
                   </button>
                 )}
+                {/* Generate PDF — the climax of every session. Custom SVG
+                    structured into <g class="dl-arrow"> + <line class="dl-line">
+                    so the spec's co-dl-arrow / co-dl-line keyframes can target
+                    the parts independently: arrow falls past the baseline and
+                    fades, line widens and pulses, arrow re-enters from above.
+                    Lucide's <Download> is a single composed path with no
+                    sub-groups, so it can't carry this animation. */}
                 <button
                   onClick={handleFillPDF}
                   disabled={processing || fields.length === 0}
@@ -741,7 +767,21 @@ export default function HomePage() {
                   {processing ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Download className="w-3.5 h-3.5" />
+                    <svg
+                      className="co-dl w-3.5 h-3.5"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <g className="dl-arrow">
+                        <path d="M7 1.5 L7 9.5" />
+                        <path d="M3.5 6.5 L7 10 L10.5 6.5" />
+                      </g>
+                      <line className="dl-line" x1="2.5" y1="12.5" x2="11.5" y2="12.5" />
+                    </svg>
                   )}
                   Download PDF
                 </button>

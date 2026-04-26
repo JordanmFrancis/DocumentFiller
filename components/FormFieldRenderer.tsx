@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { PDFField, FormValues } from '@/types/pdf';
 import FieldInput from './FieldInput';
 import FieldLabelEditor from './FieldLabelEditor';
-import { Eye } from 'lucide-react';
+import { Eye, Check } from 'lucide-react';
 
 interface FormFieldRendererProps {
   fields: PDFField[];
@@ -93,17 +93,22 @@ export default function FormFieldRenderer({
           <div className="space-y-4">
             {section.fields.map((field, index) => {
               const isActive = activeFieldName === field.name;
+              const value = values[field.name];
+              // A field is "filled" if user has entered a non-empty value.
+              // Checkboxes count as filled when checked (true).
+              const isFilled =
+                value !== undefined && value !== null && value !== '' && value !== false;
               return (
-                <motion.div
+                <div
                   key={field.name}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.02 }}
+                  className={`co-enter form-row group transition-colors ${
+                    isActive
+                      ? '-mx-3 px-3 py-2 bg-accent-tint/60 ring-1 ring-accent-line'
+                      : '-mx-3 px-3 py-2'
+                  }`}
                   data-field-row={field.name}
                   data-active={isActive}
-                  className={`group rounded-md transition-colors ${
-                    isActive ? '-mx-3 px-3 py-2 bg-accent-tint/60 ring-1 ring-accent-line' : ''
-                  }`}
+                  style={{ animationDelay: `${index * 0.03}s` }}
                 >
                   <div className="mb-1.5 flex items-center gap-2">
                     {editableLabels && onLabelChange ? (
@@ -113,7 +118,17 @@ export default function FormFieldRenderer({
                         {field.label || field.name}
                       </label>
                     )}
-                    {field.required && (
+                    {/* Completion tick — strokes itself in via co-check-draw the
+                        moment isFilled becomes true (key tied to fill state so
+                        the path remounts and re-animates each transition). */}
+                    {isFilled && (
+                      <Check
+                        key={`check-${field.name}-${isFilled}`}
+                        className="co-field-check"
+                        strokeWidth={2.6}
+                      />
+                    )}
+                    {field.required && !isFilled && (
                       <span className="text-danger text-[13px]" title="Required">*</span>
                     )}
                     {onFieldFocus && field.position && (
@@ -126,7 +141,7 @@ export default function FormFieldRenderer({
                         }`}
                         title="Show field in PDF"
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        <Eye className="co-ico co-ico-pop w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
@@ -137,7 +152,7 @@ export default function FormFieldRenderer({
                     onFocus={onFieldFocus ? () => onFieldFocus(field.name) : undefined}
                     error={errors?.[field.name]}
                   />
-                </motion.div>
+                </div>
               );
             })}
           </div>
