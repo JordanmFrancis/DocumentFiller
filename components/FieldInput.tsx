@@ -7,10 +7,11 @@ interface FieldInputProps {
   field: PDFField;
   value: any;
   onChange: (value: any) => void;
+  onFocus?: () => void;
   error?: string;
 }
 
-export default function FieldInput({ field, value, onChange, error }: FieldInputProps) {
+export default function FieldInput({ field, value, onChange, onFocus, error }: FieldInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const newValue = field.type === 'checkbox'
       ? (e.target as HTMLInputElement).checked
@@ -29,6 +30,7 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
           type="text"
           value={value || (field.defaultValue as string) || ''}
           onChange={handleChange}
+          onFocus={onFocus}
           aria-invalid={!!error}
           className="input"
           placeholder={`Enter ${(field.label || field.name).toLowerCase()}`}
@@ -40,6 +42,7 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
           type="date"
           value={value || (field.defaultValue as string) || ''}
           onChange={handleChange}
+          onFocus={onFocus}
           aria-invalid={!!error}
           className="input"
         />
@@ -50,6 +53,7 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
           type="number"
           value={value ?? (field.defaultValue as number) ?? ''}
           onChange={handleChange}
+          onFocus={onFocus}
           aria-invalid={!!error}
           className="input"
           placeholder="Enter a number"
@@ -62,6 +66,7 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
             type="checkbox"
             checked={!!(value ?? field.defaultValue ?? false)}
             onChange={handleChange}
+            onFocus={onFocus}
             className="checkbox"
           />
           <span className="text-[14px] text-ink-soft group-hover:text-ink transition-colors">
@@ -74,6 +79,7 @@ export default function FieldInput({ field, value, onChange, error }: FieldInput
         <select
           value={value || (field.defaultValue as string) || ''}
           onChange={handleChange}
+          onFocus={onFocus}
           aria-invalid={!!error}
           className="input cursor-pointer"
         >
