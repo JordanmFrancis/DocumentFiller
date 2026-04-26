@@ -94,16 +94,14 @@ export default function FormFieldRenderer({
             {section.fields.map((field, index) => {
               const isActive = activeFieldName === field.name;
               return (
-                <motion.div
+                <div
                   key={field.name}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.02 }}
-                  data-field-row={field.name}
-                  data-active={isActive}
-                  className={`group rounded-md transition-colors ${
+                  className={`co-enter group rounded-md transition-colors ${
                     isActive ? '-mx-3 px-3 py-2 bg-accent-tint/60 ring-1 ring-accent-line' : ''
                   }`}
+                  data-field-row={field.name}
+                  data-active={isActive}
+                  style={{ animationDelay: `${index * 0.03}s` }}
                 >
                   <div className="mb-1.5 flex items-center gap-2">
                     {editableLabels && onLabelChange ? (
@@ -126,7 +124,7 @@ export default function FormFieldRenderer({
                         }`}
                         title="Show field in PDF"
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        <Eye className="co-ico co-ico-wiggle w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
@@ -137,7 +135,7 @@ export default function FormFieldRenderer({
                     onFocus={onFieldFocus ? () => onFieldFocus(field.name) : undefined}
                     error={errors?.[field.name]}
                   />
-                </motion.div>
+                </div>
               );
             })}
           </div>

@@ -265,7 +265,7 @@ export default function PDFPreview({ pdfFile, activeField, className = '' }: PDF
             className="p-1 rounded hover:bg-paper-edge text-ink"
             title="Zoom out"
           >
-            <ZoomOut className="w-3.5 h-3.5" />
+            <ZoomOut className="co-ico co-ico-pop w-3.5 h-3.5" />
           </button>
           <span className="text-[12px] text-ink-soft min-w-[36px] text-center">
             {Math.round(scale * 100)}%
@@ -275,7 +275,7 @@ export default function PDFPreview({ pdfFile, activeField, className = '' }: PDF
             className="p-1 rounded hover:bg-paper-edge text-ink"
             title="Zoom in"
           >
-            <ZoomIn className="w-3.5 h-3.5" />
+            <ZoomIn className="co-ico co-ico-pop w-3.5 h-3.5" />
           </button>
         </div>
       </div>

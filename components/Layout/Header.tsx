@@ -42,9 +42,9 @@ export default function Header({ onShowTutorial, activeNav = 'documents', onNavC
     <header className="sticky top-0 z-40 bg-paper/85 backdrop-blur-sm hairline">
       <div className="max-w-[1440px] mx-auto px-8">
         <div className="flex items-center h-14 gap-8">
-          {/* Brand */}
+          {/* Brand — logo tilts on hover */}
           <div className="flex items-center gap-2.5 mr-2">
-            <div className="w-7 h-7 rounded-md bg-accent text-paper-card flex items-center justify-center font-serif text-base leading-none">
+            <div className="co-ico co-ico-tilt w-7 h-7 rounded-md bg-accent text-paper-card flex items-center justify-center font-serif text-base leading-none cursor-pointer">
               C
             </div>
             <span className="font-serif text-[17px] text-ink leading-none">Counsel</span>
@@ -66,9 +66,9 @@ export default function Header({ onShowTutorial, activeNav = 'documents', onNavC
 
           <div className="flex-1" />
 
-          {/* Search */}
-          <div className="search-box">
-            <Search className="w-3.5 h-3.5 text-ink-faint shrink-0" />
+          {/* Search — magnifier wiggles on hover, drifts when search-box itself hovered */}
+          <div className="search-box co-search">
+            <Search className="co-ico co-ico-wiggle co-ico-search w-3.5 h-3.5 text-ink-faint shrink-0" />
             <input
               type="text"
               placeholder="Search documents"
@@ -78,29 +78,29 @@ export default function Header({ onShowTutorial, activeNav = 'documents', onNavC
             <span className="kbd">{isMac ? '⌘K' : '^K'}</span>
           </div>
 
-          {/* Help */}
+          {/* Help — wiggle on hover */}
           {onShowTutorial && (
             <button
               onClick={onShowTutorial}
               className="btn btn-ghost btn-sm"
               title="Show tutorial"
             >
-              <HelpCircle className="w-4 h-4" />
+              <HelpCircle className="co-ico co-ico-wiggle w-4 h-4" />
             </button>
           )}
 
-          {/* Logout */}
+          {/* Logout — swing on hover */}
           <button
             onClick={handleLogout}
             className="btn btn-ghost btn-sm"
             title="Sign out"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="co-ico co-ico-swing w-4 h-4" />
           </button>
 
-          {/* Avatar */}
+          {/* Avatar — rubber squash on hover */}
           {user && (
-            <div className="avatar" title={user.displayName || user.email || 'You'}>
+            <div className="avatar co-ico co-ico-rubber" title={user.displayName || user.email || 'You'}>
               {user.photoURL ? (
                 <img
                   src={user.photoURL}

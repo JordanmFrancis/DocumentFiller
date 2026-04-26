@@ -27,16 +27,19 @@ interface FieldTemplate {
 //   - Paragraph → text (multi-line via larger default height)
 //   - Signature → text (rendered with a different label/hint)
 //   - Initials  → text (short)
+// Icon class assignments mirror the per-element personalities from
+// the wireframe spec — pencil-write on signature, rubber on checkbox,
+// pop on number, etc.
 const FIELD_TEMPLATES: FieldTemplate[] = [
-  { id: 'text',      type: 'text',     label: 'Text',      meta: 'Single line',     icon: <Type className="w-4 h-4" strokeWidth={1.7} />,      defaultWidth: 220, defaultHeight: 24 },
-  { id: 'paragraph', type: 'text',     label: 'Paragraph', meta: 'Multi-line',      icon: <AlignLeft className="w-4 h-4" strokeWidth={1.7} />, defaultWidth: 320, defaultHeight: 80 },
-  { id: 'date',      type: 'date',     label: 'Date',      meta: 'MM/DD/YYYY',      icon: <Calendar className="w-4 h-4" strokeWidth={1.7} />,  defaultWidth: 150, defaultHeight: 24 },
-  { id: 'number',    type: 'number',   label: 'Number',    meta: '0, 1, 2, …',      icon: <Hash className="w-4 h-4" strokeWidth={1.7} />,      defaultWidth: 130, defaultHeight: 24 },
-  { id: 'checkbox',  type: 'checkbox', label: 'Checkbox',  meta: 'Yes / no',        icon: <Square className="w-4 h-4" strokeWidth={1.7} />,    defaultWidth: 18,  defaultHeight: 18 },
-  { id: 'dropdown',  type: 'dropdown', label: 'Dropdown',  meta: 'Pick from list',  icon: <List className="w-4 h-4" strokeWidth={1.7} />,      defaultWidth: 200, defaultHeight: 24 },
-  { id: 'radio',     type: 'radio',    label: 'Radio',     meta: 'One of many',     icon: <Circle className="w-4 h-4" strokeWidth={1.7} />,    defaultWidth: 18,  defaultHeight: 18 },
-  { id: 'signature', type: 'text',     label: 'Signature', meta: 'Drawn or typed',  icon: <PenTool className="w-4 h-4" strokeWidth={1.7} />,   defaultWidth: 240, defaultHeight: 38 },
-  { id: 'initials',  type: 'text',     label: 'Initials',  meta: '2–3 letters',     icon: <Type className="w-4 h-4" strokeWidth={1.7} />,      defaultWidth: 60,  defaultHeight: 26 },
+  { id: 'text',      type: 'text',     label: 'Text',      meta: 'Single line',     icon: <Type className="co-ico co-ico-wiggle w-4 h-4" strokeWidth={1.7} />,            defaultWidth: 220, defaultHeight: 24 },
+  { id: 'paragraph', type: 'text',     label: 'Paragraph', meta: 'Multi-line',      icon: <AlignLeft className="co-ico co-ico-bounce w-4 h-4" strokeWidth={1.7} />,       defaultWidth: 320, defaultHeight: 80 },
+  { id: 'date',      type: 'date',     label: 'Date',      meta: 'MM/DD/YYYY',      icon: <Calendar className="co-ico co-ico-tilt w-4 h-4" strokeWidth={1.7} />,         defaultWidth: 150, defaultHeight: 24 },
+  { id: 'number',    type: 'number',   label: 'Number',    meta: '0, 1, 2, …',      icon: <Hash className="co-ico co-ico-pop w-4 h-4" strokeWidth={1.7} />,              defaultWidth: 130, defaultHeight: 24 },
+  { id: 'checkbox',  type: 'checkbox', label: 'Checkbox',  meta: 'Yes / no',        icon: <Square className="co-ico co-ico-rubber w-4 h-4" strokeWidth={1.7} />,         defaultWidth: 18,  defaultHeight: 18 },
+  { id: 'dropdown',  type: 'dropdown', label: 'Dropdown',  meta: 'Pick from list',  icon: <List className="co-ico co-ico-swing w-4 h-4" strokeWidth={1.7} />,            defaultWidth: 200, defaultHeight: 24 },
+  { id: 'radio',     type: 'radio',    label: 'Radio',     meta: 'One of many',     icon: <Circle className="co-ico co-ico-rubber w-4 h-4" strokeWidth={1.7} />,         defaultWidth: 18,  defaultHeight: 18 },
+  { id: 'signature', type: 'text',     label: 'Signature', meta: 'Drawn or typed',  icon: <PenTool className="co-ico co-ico-pencil w-4 h-4" strokeWidth={1.7} />,        defaultWidth: 240, defaultHeight: 38 },
+  { id: 'initials',  type: 'text',     label: 'Initials',  meta: '2–3 letters',     icon: <Type className="co-ico co-ico-jig w-4 h-4" strokeWidth={1.7} />,              defaultWidth: 60,  defaultHeight: 26 },
 ];
 
 export default function PDFFieldCreator({

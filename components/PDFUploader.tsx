@@ -40,7 +40,7 @@ export default function PDFUploader({ onFileSelect, selectedFile, onRemove }: PD
         className="surface-elev p-4 flex items-center gap-3"
       >
         <div className="w-9 h-9 rounded-md bg-accent-tint flex items-center justify-center shrink-0">
-          <FileText className="w-4.5 h-4.5 text-accent" strokeWidth={1.5} />
+          <FileText className="co-ico co-ico-tilt w-4.5 h-4.5 text-accent" strokeWidth={1.5} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-[14px] text-ink truncate">{selectedFile.name}</p>
@@ -76,13 +76,13 @@ export default function PDFUploader({ onFileSelect, selectedFile, onRemove }: PD
       data-dragging={isDragActive || isDragging}
     >
       <input {...getInputProps()} />
-      <motion.div
-        animate={isDragActive ? { scale: 1.05 } : { scale: 1 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-        className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-paper-edge mb-3"
-      >
-        <ArrowUp className="w-5 h-5 text-ink-soft" strokeWidth={1.6} />
-      </motion.div>
+      {/* Arrow tile — bounces on hover, sparkles twinkle around it */}
+      <div className="co-sparkle inline-flex items-center justify-center w-12 h-12 rounded-full bg-paper-edge mb-3">
+        <ArrowUp
+          className="co-ico co-ico-bounce w-5 h-5 text-ink-soft"
+          strokeWidth={1.6}
+        />
+      </div>
       <p className="text-[15px] text-ink mb-1">
         {isDragActive ? (
           'Drop it here'

@@ -109,8 +109,8 @@ export default function DocumentList({
           })}
         </div>
 
-        {/* View toggle */}
-        <div className="surface flex p-0.5">
+        {/* View toggle — icons pop on hover */}
+        <div className="surface flex p-0.5 co-viewtoggle">
           <button
             className={`px-2 py-1 rounded-md transition-colors ${
               view === 'grid' ? 'bg-paper-edge text-ink' : 'text-ink-faint hover:text-ink'
@@ -118,7 +118,7 @@ export default function DocumentList({
             onClick={() => setView('grid')}
             title="Grid view"
           >
-            <Grid3x3 className="w-4 h-4" />
+            <Grid3x3 className="co-ico co-ico-pop w-4 h-4" />
           </button>
           <button
             className={`px-2 py-1 rounded-md transition-colors ${
@@ -127,7 +127,7 @@ export default function DocumentList({
             onClick={() => setView('list')}
             title="List view"
           >
-            <ListIcon className="w-4 h-4" />
+            <ListIcon className="co-ico co-ico-wiggle w-4 h-4" />
           </button>
         </div>
       </div>
@@ -160,23 +160,29 @@ export default function DocumentList({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.025 }}
-                className="doc-card group"
+                className="doc-card co-enter group"
+                style={{ animationDelay: `${index * 0.04}s` }}
                 onClick={() => onSelect(doc)}
               >
                 <div className="flex items-start gap-3 mb-3">
-                  <FileText className="w-5 h-5 text-ink-soft mt-0.5 shrink-0" strokeWidth={1.5} />
-                  <h3 className="font-medium text-[14.5px] text-ink line-clamp-2 leading-tight flex-1">
+                  {/* File glyph lifts + tilts on card hover */}
+                  <FileText
+                    className="co-ico co-ico-lift co-doc-glyph w-5 h-5 text-ink-soft mt-0.5 shrink-0"
+                    strokeWidth={1.5}
+                  />
+                  <h3 className="co-row-title font-medium text-[14.5px] text-ink line-clamp-2 leading-tight flex-1">
                     {doc.name}
                   </h3>
+                  {/* Trash jigs on card hover, slides in via co-card-trash */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onDelete(doc.id);
                     }}
-                    className="p-1 rounded text-ink-muted hover:text-danger hover:bg-danger-tint opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="co-card-trash p-1 rounded text-ink-muted hover:text-danger hover:bg-danger-tint"
                     title="Delete"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="co-ico co-ico-jig w-3.5 h-3.5" />
                   </button>
                 </div>
                 <div className="text-[12.5px] text-ink-faint mb-2.5 flex items-center gap-2">
@@ -208,12 +214,17 @@ export default function DocumentList({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: index * 0.02 }}
-                className="flex items-center gap-4 px-5 py-3.5 hover:bg-paper-edge cursor-pointer transition-colors group"
+                className="co-row flex items-center gap-4 px-5 py-3.5 cursor-pointer group"
                 onClick={() => onSelect(doc)}
               >
-                <FileText className="w-5 h-5 text-ink-soft shrink-0" strokeWidth={1.5} />
+                <FileText
+                  className="co-ico co-ico-lift w-5 h-5 text-ink-soft shrink-0"
+                  strokeWidth={1.5}
+                />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-[14.5px] text-ink truncate">{doc.name}</div>
+                  <div className="co-row-title font-medium text-[14.5px] text-ink truncate">
+                    {doc.name}
+                  </div>
                   <div className="text-[12.5px] text-ink-faint">
                     {filledCount}/{fieldCount} fields · {formatRelativeTime(doc.updatedAt)}
                   </div>
@@ -228,10 +239,10 @@ export default function DocumentList({
                     e.stopPropagation();
                     onDelete(doc.id);
                   }}
-                  className="p-1.5 rounded text-ink-muted hover:text-danger hover:bg-danger-tint opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="co-card-trash p-1.5 rounded text-ink-muted hover:text-danger hover:bg-danger-tint"
                   title="Delete"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="co-ico co-ico-jig w-3.5 h-3.5" />
                 </button>
               </motion.div>
             );
