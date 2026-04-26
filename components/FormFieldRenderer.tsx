@@ -12,7 +12,11 @@ interface FormFieldRendererProps {
   values: FormValues;
   onChange: (fieldName: string, value: any) => void;
   onLabelChange?: (fieldName: string, newLabel: string) => void;
-  onFieldClick?: (fieldName: string) => void;
+  // Fired when a field row gains attention — input focus or eye-icon click.
+  // The PDFPreview pane uses this to jump pages and highlight the box.
+  onFieldFocus?: (fieldName: string) => void;
+  // The currently-active field (drives the row highlight in this list).
+  activeFieldName?: string | null;
   errors?: Record<string, string>;
   editableLabels?: boolean;
 }
@@ -60,7 +64,8 @@ export default function FormFieldRenderer({
   values,
   onChange,
   onLabelChange,
-  onFieldClick,
+  onFieldFocus,
+  activeFieldName,
   errors,
   editableLabels = true,
 }: FormFieldRendererProps) {
@@ -86,43 +91,55 @@ export default function FormFieldRenderer({
             </div>
           )}
           <div className="space-y-4">
-            {section.fields.map((field, index) => (
-              <motion.div
-                key={field.name}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.02 }}
-                className="group"
-              >
-                <div className="mb-1.5 flex items-center gap-2">
-                  {editableLabels && onLabelChange ? (
-                    <FieldLabelEditor field={field} onLabelChange={onLabelChange} />
-                  ) : (
-                    <label className="field-label !mb-0 !text-ink flex-1">
-                      {field.label || field.name}
-                    </label>
-                  )}
-                  {field.required && (
-                    <span className="text-danger text-[13px]" title="Required">*</span>
-                  )}
-                  {onFieldClick && field.position && (
-                    <button
-                      onClick={() => onFieldClick(field.name)}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-ink-faint hover:text-ink hover:bg-paper-edge transition-opacity"
-                      title="Show field in PDF"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                <FieldInput
-                  field={field}
-                  value={values[field.name]}
-                  onChange={(value) => onChange(field.name, value)}
-                  error={errors?.[field.name]}
-                />
-              </motion.div>
-            ))}
+            {section.fields.map((field, index) => {
+              const isActive = activeFieldName === field.name;
+              return (
+                <motion.div
+                  key={field.name}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.02 }}
+                  data-field-row={field.name}
+                  data-active={isActive}
+                  className={`group rounded-md transition-colors ${
+                    isActive ? '-mx-3 px-3 py-2 bg-accent-tint/60 ring-1 ring-accent-line' : ''
+                  }`}
+                >
+                  <div className="mb-1.5 flex items-center gap-2">
+                    {editableLabels && onLabelChange ? (
+                      <FieldLabelEditor field={field} onLabelChange={onLabelChange} />
+                    ) : (
+                      <label className="field-label !mb-0 !text-ink flex-1">
+                        {field.label || field.name}
+                      </label>
+                    )}
+                    {field.required && (
+                      <span className="text-danger text-[13px]" title="Required">*</span>
+                    )}
+                    {onFieldFocus && field.position && (
+                      <button
+                        onClick={() => onFieldFocus(field.name)}
+                        className={`p-1 rounded transition-all ${
+                          isActive
+                            ? 'opacity-100 text-accent bg-accent-tint'
+                            : 'opacity-0 group-hover:opacity-100 text-ink-faint hover:text-ink hover:bg-paper-edge'
+                        }`}
+                        title="Show field in PDF"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <FieldInput
+                    field={field}
+                    value={values[field.name]}
+                    onChange={(value) => onChange(field.name, value)}
+                    onFocus={onFieldFocus ? () => onFieldFocus(field.name) : undefined}
+                    error={errors?.[field.name]}
+                  />
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       ))}

@@ -50,6 +50,9 @@ export default function HomePage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [detectionStage, setDetectionStage] = useState<'acroform' | 'visual' | 'ai-vision' | null>(null);
   const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null);
+  // Currently focused field on the form side — drives the highlight + page
+  // jump on the PDF preview pane.
+  const [activeFieldName, setActiveFieldName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -367,6 +370,12 @@ export default function HomePage() {
     }
   };
 
+  // Set the active field whenever the user focuses an input or clicks a row's
+  // eye icon — drives the highlight + auto-page-jump in PDFPreview.
+  const handleFieldFocus = (fieldName: string) => {
+    setActiveFieldName(fieldName);
+  };
+
   const handleFieldsCreated = async (createdFields: PDFField[], modifiedPdfBytes: Uint8Array) => {
     const pdfArrayBuffer = new ArrayBuffer(modifiedPdfBytes.length);
     new Uint8Array(pdfArrayBuffer).set(modifiedPdfBytes);
@@ -413,12 +422,17 @@ export default function HomePage() {
   }).length;
   const totalFields = fields.length;
   const filename = currentDocument?.name || selectedFile?.name || 'Untitled.pdf';
+  const activeField = activeFieldName ? fields.find((f) => f.name === activeFieldName) ?? null : null;
 
   // ────────────────────────────────────────────────────────
   // Render
   // ────────────────────────────────────────────────────────
+  // Form view locks the page to viewport height so each pane scrolls
+  // independently; other views allow normal page scroll.
+  const isFormView = viewMode === 'form';
+
   return (
-    <div className="min-h-screen bg-paper text-ink">
+    <div className={`bg-paper text-ink ${isFormView ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
       <Header onShowTutorial={() => setShowOnboarding(true)} />
 
       {/* Dashboard / list view */}
@@ -581,20 +595,22 @@ export default function HomePage() {
         </main>
       )}
 
-      {/* Form / fill view — split pane */}
+      {/* Form / fill view — split pane with independent panel scroll */}
       {viewMode === 'form' && (
         <motion.main
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="grid grid-cols-1 lg:grid-cols-[minmax(420px,560px)_1fr] gap-0 max-w-[1440px] mx-auto"
-          style={{ minHeight: 'calc(100vh - 56px)' }}
+          className="grid grid-cols-1 lg:grid-cols-[minmax(420px,580px)_1fr] gap-0 max-w-[1600px] mx-auto lg:h-[calc(100vh-56px)] lg:overflow-hidden"
         >
-          {/* LEFT: form */}
-          <section className="border-r border-rule flex flex-col">
-            {/* Form header */}
-            <div className="px-7 pt-6 pb-5 hairline">
+          {/* LEFT: form (header + scrolling body + footer) */}
+          <section className="border-r border-rule flex flex-col lg:overflow-hidden">
+            {/* Form header — fixed */}
+            <div className="px-7 pt-6 pb-5 hairline shrink-0 bg-paper">
               <button
-                onClick={() => setViewMode('list')}
+                onClick={() => {
+                  setActiveFieldName(null);
+                  setViewMode('list');
+                }}
                 className="text-[12.5px] text-ink-faint hover:text-ink flex items-center gap-1 mb-3 transition-colors"
               >
                 <ArrowLeft className="w-3 h-3" />
@@ -620,20 +636,21 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Form body */}
-            <div className="flex-1 overflow-y-auto px-7 py-6">
+            {/* Form body — independent scroll */}
+            <div className="flex-1 lg:overflow-y-auto px-7 py-6">
               <FormFieldRenderer
                 fields={fields}
                 values={formValues}
                 onChange={handleFormChange}
                 onLabelChange={handleLabelChange}
-                onFieldClick={handleFieldClick}
+                onFieldFocus={handleFieldFocus}
+                activeFieldName={activeFieldName}
                 editableLabels={true}
               />
             </div>
 
-            {/* Form footer */}
-            <div className="hairline-t px-7 py-4 flex items-center justify-between gap-3 bg-paper-card">
+            {/* Form footer — fixed */}
+            <div className="hairline-t px-7 py-4 flex items-center justify-between gap-3 bg-paper-card shrink-0">
               <div className="flex items-center gap-2 text-[12.5px] text-ink-faint">
                 {autoSavedAt ? (
                   <>
@@ -688,9 +705,9 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* RIGHT: PDF preview */}
-          <section className="bg-paper-card hidden lg:flex flex-col">
-            <PDFPreview pdfFile={selectedFile} />
+          {/* RIGHT: PDF preview — fixed in viewport, scrolls internally */}
+          <section className="bg-paper-card hidden lg:flex flex-col lg:overflow-hidden">
+            <PDFPreview pdfFile={selectedFile} activeField={activeField} />
           </section>
         </motion.main>
       )}
