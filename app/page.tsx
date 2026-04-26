@@ -29,6 +29,7 @@ import PDFFieldCreator from '@/components/PDFFieldCreator';
 import OnboardingSlideshow from '@/components/Onboarding/OnboardingSlideshow';
 import { detectVisualFields } from '@/lib/visualFieldDetector';
 import { detectAIVisionFields } from '@/lib/aiVisualFieldDetector';
+import { detectAnnotationFields } from '@/lib/annotationFieldDetector';
 
 type ViewMode = 'list' | 'upload' | 'form' | 'loading';
 
@@ -117,19 +118,62 @@ export default function HomePage() {
       formData.append('file', file);
       formData.append('useAI', useAILabeling.toString());
 
-      const response = await fetch('/api/detect-fields', {
-        method: 'POST',
-        body: formData,
-      });
+      // Tier 1 runs two AcroForm parsers in parallel and merges their results:
+      //   - server-side pdf-lib (handles AI label generation when enabled)
+      //   - client-side pdf.js getAnnotations() — the same path PDF viewers
+      //     like Chrome use; tends to catch widgets pdf-lib misses
+      // Either failing alone is fine — we just lose that side's coverage.
+      const [serverResult, clientFields] = await Promise.all([
+        fetch('/api/detect-fields', { method: 'POST', body: formData })
+          .then(async (r) => {
+            if (!r.ok) throw new Error(`detect-fields ${r.status}`);
+            return (await r.json()) as { fields: PDFField[] };
+          })
+          .catch((e) => {
+            console.warn('Server-side AcroForm detection failed:', e);
+            return { fields: [] as PDFField[] };
+          }),
+        detectAnnotationFields(file).catch((e) => {
+          console.warn('Client-side annotation detection failed:', e);
+          return [] as PDFField[];
+        }),
+      ]);
 
-      if (!response.ok) throw new Error('Failed to detect fields');
+      const serverFields = serverResult.fields || [];
+      console.log(
+        `Tier 1: pdf-lib found ${serverFields.length}, pdf.js found ${clientFields.length}`
+      );
 
-      const data = await response.json();
+      // Union by field name. Start with client (reliable position from pdf.js),
+      // overlay with server fields (which may carry AI-generated labels and
+      // richer metadata like options/required/defaultValue).
+      const fieldMap = new Map<string, PDFField>();
+      for (const f of clientFields) fieldMap.set(f.name, f);
+      for (const f of serverFields) {
+        const existing = fieldMap.get(f.name);
+        if (!existing) {
+          fieldMap.set(f.name, f);
+        } else {
+          fieldMap.set(f.name, {
+            ...existing,
+            type: f.type,
+            label: f.label || existing.label,
+            // Position: prefer whichever side actually has one
+            position: existing.position || f.position,
+            page: existing.position ? existing.page : f.page,
+            defaultValue: f.defaultValue ?? existing.defaultValue,
+            options: f.options || existing.options,
+            required: f.required ?? existing.required,
+          });
+        }
+      }
+      const tier1Fields = Array.from(fieldMap.values());
+
       setFormValues({});
 
       // Tier 1: AcroForm widgets
-      if (data.fields.length > 0) {
-        setFields(data.fields);
+      if (tier1Fields.length > 0) {
+        setFields(tier1Fields);
         setViewMode('form');
         return;
       }
