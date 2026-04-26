@@ -31,6 +31,8 @@ export default function PDFPreview({ pdfFile, activeField, className = '' }: PDF
   const [viewport, setViewport] = useState<any>(null);
   const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  // Drives the canvas fade between pages — 0.4 while rendering, 1 when ready
+  const [pageOpacity, setPageOpacity] = useState(1);
 
   // Load the PDF.js library + the file itself
   useEffect(() => {
@@ -97,6 +99,10 @@ export default function PDFPreview({ pdfFile, activeField, className = '' }: PDF
     if (!pdfDoc || !canvasRef.current) return;
 
     let cancelled = false;
+    // Dim the canvas while a new page is rendering — fades back up once the
+    // render promise resolves. Snappy enough to not feel laggy, slow enough
+    // to make page-jumps from the form-side feel intentional.
+    setPageOpacity(0.4);
     const render = async () => {
       try {
         const page = await pdfDoc.getPage(currentPage);
@@ -127,6 +133,11 @@ export default function PDFPreview({ pdfFile, activeField, className = '' }: PDF
           setCanvasSize({
             width: Math.floor(viewportObj.width),
             height: Math.floor(viewportObj.height),
+          });
+          // Fade canvas back in on the next frame so the browser commits the
+          // new pixels before transitioning opacity (no flash of stale page).
+          requestAnimationFrame(() => {
+            if (!cancelled) setPageOpacity(1);
           });
         }
       } catch (e) {
@@ -301,12 +312,16 @@ export default function PDFPreview({ pdfFile, activeField, className = '' }: PDF
           <div className="relative inline-block">
             <canvas
               ref={canvasRef}
-              className="bg-white shadow-md ring-1 ring-rule rounded-sm block"
+              className="co-page-fade bg-white shadow-md ring-1 ring-rule rounded-sm block"
+              style={{ opacity: pageOpacity }}
             />
             {overlayStyle && canvasSize.width > 0 && (
               <div
+                // Re-mount on activeField/page change so the in-animation
+                // plays each time, not just on first paint.
+                key={`${activeField?.name ?? ''}-${currentPage}`}
                 ref={overlayRef}
-                className="absolute pointer-events-none transition-all duration-200"
+                className="co-overlay-in absolute pointer-events-none transition-[left,top,width,height] duration-200"
                 style={{
                   ...overlayStyle,
                   background: 'rgba(45, 74, 58, 0.18)',
@@ -314,6 +329,9 @@ export default function PDFPreview({ pdfFile, activeField, className = '' }: PDF
                   borderRadius: '3px',
                   boxShadow: '0 0 0 4px rgba(45, 74, 58, 0.12)',
                   zIndex: 10,
+                  // transformOrigin centers the scale-up so it grows from
+                  // the box's middle rather than its top-left corner.
+                  transformOrigin: 'center center',
                 }}
               />
             )}

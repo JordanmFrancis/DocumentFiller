@@ -127,7 +127,7 @@ export default function DocumentList({
             onClick={() => setView('list')}
             title="List view"
           >
-            <ListIcon className="co-ico co-ico-wiggle w-4 h-4" />
+            <ListIcon className="co-ico co-ico-pop w-4 h-4" />
           </button>
         </div>
       </div>

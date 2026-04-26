@@ -78,14 +78,14 @@ export default function Header({ onShowTutorial, activeNav = 'documents', onNavC
             <span className="kbd">{isMac ? '⌘K' : '^K'}</span>
           </div>
 
-          {/* Help — wiggle on hover */}
+          {/* Help — pop on click (wiggle is reserved for search) */}
           {onShowTutorial && (
             <button
               onClick={onShowTutorial}
               className="btn btn-ghost btn-sm"
               title="Show tutorial"
             >
-              <HelpCircle className="co-ico co-ico-wiggle w-4 h-4" />
+              <HelpCircle className="co-ico co-ico-pop w-4 h-4" />
             </button>
           )}
 

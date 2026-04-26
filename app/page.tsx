@@ -14,7 +14,6 @@ import { fillPDF } from '@/lib/pdfFiller';
 import { uploadPDF, downloadPDF } from '@/lib/firestore/storage';
 import { saveDocument, getUserDocuments, deleteDocument, updateDocument } from '@/lib/firestore/documents';
 import {
-  Download,
   Save,
   Loader2,
   Eye,
@@ -590,9 +589,11 @@ export default function HomePage() {
                 return (
                   <span
                     key={stage}
+                    // Currently-running tier breathes a soft green ring so
+                    // it's obvious which detector is firing right now.
                     className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors ${
                       isCurrent
-                        ? 'bg-accent text-paper-card border-accent'
+                        ? 'bg-accent text-paper-card border-accent co-pill-breath'
                         : isPast
                         ? 'bg-accent-tint text-accent border-accent-line'
                         : 'bg-paper-elev text-ink-faint border-rule'
@@ -707,6 +708,13 @@ export default function HomePage() {
                     Save
                   </button>
                 )}
+                {/* Generate PDF — the climax of every session. Custom SVG
+                    structured into <g class="dl-arrow"> + <line class="dl-line">
+                    so the spec's co-dl-arrow / co-dl-line keyframes can target
+                    the parts independently: arrow falls past the baseline and
+                    fades, line widens and pulses, arrow re-enters from above.
+                    Lucide's <Download> is a single composed path with no
+                    sub-groups, so it can't carry this animation. */}
                 <button
                   onClick={handleFillPDF}
                   disabled={processing || fields.length === 0}
@@ -715,7 +723,21 @@ export default function HomePage() {
                   {processing ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Download className="co-ico co-ico-bounce co-ico-rubber w-3.5 h-3.5" />
+                    <svg
+                      className="co-dl w-3.5 h-3.5"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <g className="dl-arrow">
+                        <path d="M7 1.5 L7 9.5" />
+                        <path d="M3.5 6.5 L7 10 L10.5 6.5" />
+                      </g>
+                      <line className="dl-line" x1="2.5" y1="12.5" x2="11.5" y2="12.5" />
+                    </svg>
                   )}
                   Download PDF
                 </button>

@@ -31,7 +31,7 @@ interface FieldTemplate {
 // the wireframe spec — pencil-write on signature, rubber on checkbox,
 // pop on number, etc.
 const FIELD_TEMPLATES: FieldTemplate[] = [
-  { id: 'text',      type: 'text',     label: 'Text',      meta: 'Single line',     icon: <Type className="co-ico co-ico-wiggle w-4 h-4" strokeWidth={1.7} />,            defaultWidth: 220, defaultHeight: 24 },
+  { id: 'text',      type: 'text',     label: 'Text',      meta: 'Single line',     icon: <Type className="co-ico co-ico-pop w-4 h-4" strokeWidth={1.7} />,               defaultWidth: 220, defaultHeight: 24 },
   { id: 'paragraph', type: 'text',     label: 'Paragraph', meta: 'Multi-line',      icon: <AlignLeft className="co-ico co-ico-bounce w-4 h-4" strokeWidth={1.7} />,       defaultWidth: 320, defaultHeight: 80 },
   { id: 'date',      type: 'date',     label: 'Date',      meta: 'MM/DD/YYYY',      icon: <Calendar className="co-ico co-ico-tilt w-4 h-4" strokeWidth={1.7} />,         defaultWidth: 150, defaultHeight: 24 },
   { id: 'number',    type: 'number',   label: 'Number',    meta: '0, 1, 2, …',      icon: <Hash className="co-ico co-ico-pop w-4 h-4" strokeWidth={1.7} />,              defaultWidth: 130, defaultHeight: 24 },
