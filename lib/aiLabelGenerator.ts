@@ -108,6 +108,53 @@ export async function extractFieldContext(
 }
 
 /**
+ * Orchestrates the full AI relabeling flow: extract per-field context from
+ * the PDF, call OpenAI with batched prompts, and return fields with the
+ * generated labels merged onto them.
+ *
+ * Reads OPENAI_API_KEY from the environment. If unset, logs a warning and
+ * returns the input fields unchanged. Any error during extraction or the
+ * OpenAI call is logged and the original fields are returned — callers can
+ * treat this as a best-effort enhancement that never throws.
+ */
+export async function relabelFieldsWithAI(
+  pdfBytes: Uint8Array,
+  fields: PDFField[]
+): Promise<PDFField[]> {
+  const openaiApiKey = process.env.OPENAI_API_KEY;
+  if (!openaiApiKey) {
+    console.warn('OPENAI_API_KEY not set, skipping AI label generation');
+    return fields;
+  }
+  if (fields.length === 0) return fields;
+
+  try {
+    const contextMap = new Map<string, string>();
+    const batchSize = 5;
+    for (let i = 0; i < fields.length; i += batchSize) {
+      const batch = fields.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(async (field) => {
+          const context = await extractFieldContext(pdfBytes, field);
+          contextMap.set(field.name, context);
+        })
+      );
+    }
+
+    const aiLabels = await generateAILabels(fields, contextMap, openaiApiKey);
+    console.log(`Generated ${aiLabels.size} AI labels out of ${fields.length} fields`);
+
+    return fields.map((field) => {
+      const aiLabel = aiLabels.get(field.name);
+      return aiLabel ? { ...field, label: aiLabel } : field;
+    });
+  } catch (error) {
+    console.error('Error generating AI labels:', error);
+    return fields;
+  }
+}
+
+/**
  * Generate better labels for fields using OpenAI
  */
 export async function generateAILabels(

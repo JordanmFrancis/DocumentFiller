@@ -86,8 +86,10 @@ export default function HomePage() {
 
   const materializeInferredFields = async (
     file: File,
-    inferredFields: PDFField[]
+    inferredFields: PDFField[],
+    useAILabelingFlag: boolean
   ): Promise<void> => {
+    // 1) Bake the inferred field rectangles into the PDF as AcroForm widgets.
     const addFieldsForm = new FormData();
     addFieldsForm.append('file', file);
     addFieldsForm.append('fields', JSON.stringify(inferredFields));
@@ -105,8 +107,32 @@ export default function HomePage() {
     const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
     const modifiedFile = new File([blob], file.name, { type: 'application/pdf' });
 
+    // 2) If AI labeling is enabled, send the fields to /api/label-fields for
+    //    a context-driven relabel pass. Best-effort: we keep the inferred
+    //    labels (e.g. "Field 1") if the call fails.
+    let finalFields = inferredFields;
+    if (useAILabelingFlag) {
+      try {
+        const labelForm = new FormData();
+        labelForm.append('file', modifiedFile);
+        labelForm.append('fields', JSON.stringify(inferredFields));
+        const labelResponse = await fetch('/api/label-fields', {
+          method: 'POST',
+          body: labelForm,
+        });
+        if (labelResponse.ok) {
+          const data = await labelResponse.json();
+          if (Array.isArray(data.fields)) finalFields = data.fields;
+        } else {
+          console.warn('AI labeling returned non-OK:', labelResponse.status);
+        }
+      } catch (e) {
+        console.warn('AI labeling failed for inferred fields:', e);
+      }
+    }
+
     setSelectedFile(modifiedFile);
-    setFields(inferredFields);
+    setFields(finalFields);
     setViewMode('form');
   };
 
@@ -195,7 +221,7 @@ export default function HomePage() {
       }
 
       if (visualFields.length > 0) {
-        await materializeInferredFields(file, visualFields);
+        await materializeInferredFields(file, visualFields, useAILabeling);
         return;
       }
 
@@ -213,7 +239,7 @@ export default function HomePage() {
       }
 
       if (aiFields.length > 0) {
-        await materializeInferredFields(file, aiFields);
+        await materializeInferredFields(file, aiFields, useAILabeling);
         return;
       }
 
