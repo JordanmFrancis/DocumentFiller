@@ -330,6 +330,8 @@ export default function HomePage() {
     try {
       let file: File | null = null;
 
+      // Tier 1: parse the storage path out of the URL and download via the
+      // Firebase SDK (gets a fresh signed URL, sidesteps token expiry).
       try {
         const url = new URL(doc.originalPdfUrl);
         const pathMatch = url.pathname.match(/\/o\/(.+?)(\?|$)/);
@@ -337,16 +339,30 @@ export default function HomePage() {
           const storagePath = decodeURIComponent(pathMatch[1]);
           const blob = await downloadPDF(storagePath);
           file = new File([blob], doc.name, { type: 'application/pdf' });
-          setSelectedFile(file);
         }
-      } catch (urlError) {
-        console.warn('Could not parse URL, trying direct fetch:', urlError);
-        const response = await fetch(doc.originalPdfUrl, { mode: 'cors', credentials: 'omit' });
-        if (response.ok) {
-          const blob = await response.blob();
-          file = new File([blob], doc.name, { type: 'application/pdf' });
-          setSelectedFile(file);
+      } catch (sdkError) {
+        console.warn('SDK download failed:', sdkError);
+      }
+
+      // Tier 2: fall back to fetching the saved URL directly. Runs whenever
+      // the SDK path didn't produce a file — including when pathMatch was null.
+      if (!file) {
+        try {
+          const response = await fetch(doc.originalPdfUrl, { mode: 'cors', credentials: 'omit' });
+          if (response.ok) {
+            const blob = await response.blob();
+            file = new File([blob], doc.name, { type: 'application/pdf' });
+          }
+        } catch (fetchError) {
+          console.warn('Direct fetch failed:', fetchError);
         }
+      }
+
+      if (file) {
+        setSelectedFile(file);
+      } else {
+        console.error('Failed to load PDF for document', doc.id, doc.originalPdfUrl);
+        alert('Could not load the PDF for this document. The file may be missing or inaccessible.');
       }
 
       const fieldsHavePositions = doc.fieldDefinitions.some((f) => f.position);
@@ -717,7 +733,9 @@ export default function HomePage() {
           <div className="text-center max-w-md">
             <Loader2 className="w-9 h-9 text-accent animate-spin mx-auto mb-4" />
             <p className="font-serif text-[20px] text-ink mb-1">
-              {detectionStage === 'visual'
+              {currentDocument
+                ? 'Loading document…'
+                : detectionStage === 'visual'
                 ? 'Scanning visual boxes…'
                 : detectionStage === 'ai-vision'
                 ? 'Asking AI to find fields…'
@@ -726,42 +744,46 @@ export default function HomePage() {
                 : 'Detecting form fields…'}
             </p>
             <p className="text-[13px] text-ink-faint mb-5">
-              {detectionStage === 'ai-vision'
+              {currentDocument
+                ? 'Fetching your saved PDF and form'
+                : detectionStage === 'ai-vision'
                 ? 'This may take 10–20 seconds'
                 : 'Falling back through detection tiers'}
             </p>
 
-            {/* Tier indicator */}
-            <div className="flex items-center justify-center gap-1.5">
-              {(['acroform', 'visual', 'ai-vision'] as const).map((stage) => {
-                const labels = {
-                  acroform: '1 · AcroForm',
-                  visual: '2 · Vector',
-                  'ai-vision': '3 · AI vision',
-                };
-                const stages = ['acroform', 'visual', 'ai-vision'] as const;
-                const currentIdx = detectionStage ? stages.indexOf(detectionStage) : 0;
-                const myIdx = stages.indexOf(stage);
-                const isCurrent = stage === detectionStage;
-                const isPast = myIdx < currentIdx;
-                return (
-                  <span
-                    key={stage}
-                    // Currently-running tier breathes a soft green ring so
-                    // it's obvious which detector is firing right now.
-                    className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors ${
-                      isCurrent
-                        ? 'bg-accent text-paper-card border-accent co-pill-breath'
-                        : isPast
-                        ? 'bg-accent-tint text-accent border-accent-line'
-                        : 'bg-paper-elev text-ink-faint border-rule'
-                    }`}
-                  >
-                    {labels[stage]}
-                  </span>
-                );
-              })}
-            </div>
+            {/* Tier indicator — only when actively detecting on a fresh upload */}
+            {!currentDocument && (
+              <div className="flex items-center justify-center gap-1.5">
+                {(['acroform', 'visual', 'ai-vision'] as const).map((stage) => {
+                  const labels = {
+                    acroform: '1 · AcroForm',
+                    visual: '2 · Vector',
+                    'ai-vision': '3 · AI vision',
+                  };
+                  const stages = ['acroform', 'visual', 'ai-vision'] as const;
+                  const currentIdx = detectionStage ? stages.indexOf(detectionStage) : 0;
+                  const myIdx = stages.indexOf(stage);
+                  const isCurrent = stage === detectionStage;
+                  const isPast = myIdx < currentIdx;
+                  return (
+                    <span
+                      key={stage}
+                      // Currently-running tier breathes a soft green ring so
+                      // it's obvious which detector is firing right now.
+                      className={`text-[11.5px] px-2.5 py-1 rounded-full border transition-colors ${
+                        isCurrent
+                          ? 'bg-accent text-paper-card border-accent co-pill-breath'
+                          : isPast
+                          ? 'bg-accent-tint text-accent border-accent-line'
+                          : 'bg-paper-elev text-ink-faint border-rule'
+                      }`}
+                    >
+                      {labels[stage]}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </main>
       )}
