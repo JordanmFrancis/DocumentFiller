@@ -12,7 +12,7 @@ import PDFPreview from '@/components/PDFPreview';
 import { PDFField, PDFDocument, FormValues } from '@/types/pdf';
 import { fillPDF } from '@/lib/pdfFiller';
 import { uploadPDF, downloadPDF } from '@/lib/firestore/storage';
-import { saveDocument, getUserDocuments, deleteDocument, updateDocument } from '@/lib/firestore/documents';
+import { saveDocument, getUserDocuments, deleteDocument, updateDocument, pruneDefaults } from '@/lib/firestore/documents';
 import {
   Save,
   Loader2,
@@ -500,7 +500,16 @@ export default function HomePage() {
       try {
         const pdfPath = `users/${user.uid}/documents/${currentDocument.id}/original.pdf`;
         await uploadPDF(modifiedFile, pdfPath);
-        await updateDocument(currentDocument.id, { fieldDefinitions: createdFields });
+        const prunedDefaults = pruneDefaults(createdFields, currentDocument.defaultValues);
+        await updateDocument(currentDocument.id, {
+          fieldDefinitions: createdFields,
+          defaultValues: prunedDefaults,
+        });
+        setCurrentDocument({
+          ...currentDocument,
+          fieldDefinitions: createdFields,
+          defaultValues: prunedDefaults,
+        });
       } catch (error) {
         console.error('Error saving modified PDF:', error);
       }
@@ -882,7 +891,16 @@ export default function HomePage() {
           onFieldsChange={(updatedFields) => {
             setFields(updatedFields);
             if (currentDocument) {
-              updateDocument(currentDocument.id, { fieldDefinitions: updatedFields }).catch((error) => {
+              const prunedDefaults = pruneDefaults(updatedFields, currentDocument.defaultValues);
+              setCurrentDocument({
+                ...currentDocument,
+                fieldDefinitions: updatedFields,
+                defaultValues: prunedDefaults,
+              });
+              updateDocument(currentDocument.id, {
+                fieldDefinitions: updatedFields,
+                defaultValues: prunedDefaults,
+              }).catch((error) => {
                 console.error('Error updating document fields:', error);
               });
             }
