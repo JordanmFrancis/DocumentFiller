@@ -236,6 +236,12 @@ export default function HomePage() {
 
   const handleFormChange = (fieldName: string, value: any) => {
     setFormValues((prev) => ({ ...prev, [fieldName]: value }));
+    setUntouchedDefaults((prev) => {
+      if (!prev.has(fieldName)) return prev;
+      const next = new Set(prev);
+      next.delete(fieldName);
+      return next;
+    });
     setAutoSavedAt(new Date());
   };
 
@@ -421,6 +427,12 @@ export default function HomePage() {
   // eye icon — drives the highlight + auto-page-jump in PDFPreview.
   const handleFieldFocus = (fieldName: string) => {
     setActiveFieldName(fieldName);
+    setUntouchedDefaults((prev) => {
+      if (!prev.has(fieldName)) return prev;
+      const next = new Set(prev);
+      next.delete(fieldName);
+      return next;
+    });
   };
 
   const handleFieldsCreated = async (createdFields: PDFField[], modifiedPdfBytes: Uint8Array) => {
