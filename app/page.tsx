@@ -932,7 +932,12 @@ export default function HomePage() {
 
           {/* RIGHT: PDF preview — fixed in viewport, scrolls internally */}
           <section className="bg-paper-card hidden lg:flex flex-col lg:overflow-hidden">
-            <PDFPreview pdfFile={selectedFile} activeField={activeField} />
+            <PDFPreview
+              pdfFile={selectedFile}
+              activeField={activeField}
+              fields={fields}
+              values={formValues}
+            />
           </section>
         </motion.main>
       )}
