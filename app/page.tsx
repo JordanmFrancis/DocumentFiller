@@ -173,6 +173,7 @@ export default function HomePage() {
       const tier1Fields = Array.from(fieldMap.values());
 
       setFormValues({});
+      setUntouchedDefaults(new Set());
 
       // Tier 1: AcroForm widgets
       if (tier1Fields.length > 0) {
@@ -315,7 +316,8 @@ export default function HomePage() {
 
   const handleDocumentSelect = async (doc: PDFDocument) => {
     setCurrentDocument(doc);
-    setFormValues({});
+    setFormValues({ ...(doc.defaultValues ?? {}) });
+    setUntouchedDefaults(new Set(Object.keys(doc.defaultValues ?? {})));
     setViewMode('loading');
     setProcessing(true);
 
@@ -398,6 +400,7 @@ export default function HomePage() {
     setSelectedFile(null);
     setFields([]);
     setFormValues({});
+    setUntouchedDefaults(new Set());
     setCurrentDocument(null);
   };
 
