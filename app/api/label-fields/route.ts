@@ -28,10 +28,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid fields JSON' }, { status: 400 });
     }
 
+    // Optional pre-extracted contexts. When present, the route skips the
+    // fragile server-side pdfjs path entirely and just calls OpenAI.
+    const contextsJson = formData.get('contexts') as string | null;
+    let preBuiltContexts: Map<string, string> | undefined;
+    if (contextsJson) {
+      try {
+        const obj = JSON.parse(contextsJson) as Record<string, string>;
+        preBuiltContexts = new Map(Object.entries(obj));
+      } catch {
+        console.warn('Invalid contexts JSON; ignoring and falling back to server extraction');
+      }
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
 
-    const relabeled = await relabelFieldsWithAI(uint8Array, fields);
+    const relabeled = await relabelFieldsWithAI(uint8Array, fields, preBuiltContexts);
     return NextResponse.json({ fields: relabeled });
   } catch (error) {
     console.error('Error labeling fields:', error);

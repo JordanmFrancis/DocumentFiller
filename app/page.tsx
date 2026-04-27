@@ -29,6 +29,7 @@ import OnboardingSlideshow from '@/components/Onboarding/OnboardingSlideshow';
 import { detectVisualFields } from '@/lib/visualFieldDetector';
 import { detectAIVisionFields } from '@/lib/aiVisualFieldDetector';
 import { detectAnnotationFields } from '@/lib/annotationFieldDetector';
+import { extractFieldContextsClient } from '@/lib/extractFieldContextsClient';
 
 type ViewMode = 'list' | 'upload' | 'form' | 'loading';
 
@@ -107,15 +108,25 @@ export default function HomePage() {
     const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
     const modifiedFile = new File([blob], file.name, { type: 'application/pdf' });
 
-    // 2) If AI labeling is enabled, send the fields to /api/label-fields for
-    //    a context-driven relabel pass. Best-effort: we keep the inferred
-    //    labels (e.g. "Field 1") if the call fails.
+    // 2) If AI labeling is enabled, extract per-field context client-side
+    //    (pdf.js works reliably in the browser, unlike server-side pdfjs-dist
+    //    on Vercel serverless), then send fields + contexts to
+    //    /api/label-fields for the OpenAI call. Best-effort throughout.
     let finalFields = inferredFields;
     if (useAILabelingFlag) {
       try {
+        let contexts: Record<string, string> = {};
+        try {
+          contexts = await extractFieldContextsClient(modifiedFile, inferredFields);
+        } catch (e) {
+          console.warn('Client-side context extraction failed; proceeding without:', e);
+        }
+
         const labelForm = new FormData();
         labelForm.append('file', modifiedFile);
         labelForm.append('fields', JSON.stringify(inferredFields));
+        labelForm.append('contexts', JSON.stringify(contexts));
+
         const labelResponse = await fetch('/api/label-fields', {
           method: 'POST',
           body: labelForm,

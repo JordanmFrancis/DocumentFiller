@@ -108,9 +108,14 @@ export async function extractFieldContext(
 }
 
 /**
- * Orchestrates the full AI relabeling flow: extract per-field context from
- * the PDF, call OpenAI with batched prompts, and return fields with the
- * generated labels merged onto them.
+ * Orchestrates the AI relabeling flow: gather per-field text context, call
+ * OpenAI with batched prompts, return fields with the generated labels
+ * merged onto them.
+ *
+ * Pass `preBuiltContexts` to skip server-side extraction (recommended:
+ * extract on the client where pdf.js is reliable, post the map up). When
+ * absent, falls back to server-side `extractFieldContext` which depends on
+ * pdfjs-dist resolving its worker — fragile on Vercel serverless.
  *
  * Reads OPENAI_API_KEY from the environment. If unset, logs a warning and
  * returns the input fields unchanged. Any error during extraction or the
@@ -119,7 +124,8 @@ export async function extractFieldContext(
  */
 export async function relabelFieldsWithAI(
   pdfBytes: Uint8Array,
-  fields: PDFField[]
+  fields: PDFField[],
+  preBuiltContexts?: Map<string, string>
 ): Promise<PDFField[]> {
   const openaiApiKey = process.env.OPENAI_API_KEY;
   if (!openaiApiKey) {
@@ -129,20 +135,28 @@ export async function relabelFieldsWithAI(
   if (fields.length === 0) return fields;
 
   try {
-    const contextMap = new Map<string, string>();
-    const batchSize = 5;
-    for (let i = 0; i < fields.length; i += batchSize) {
-      const batch = fields.slice(i, i + batchSize);
-      await Promise.all(
-        batch.map(async (field) => {
-          const context = await extractFieldContext(pdfBytes, field);
-          contextMap.set(field.name, context);
-        })
-      );
+    let contextMap: Map<string, string>;
+    if (preBuiltContexts) {
+      contextMap = preBuiltContexts;
+    } else {
+      contextMap = new Map<string, string>();
+      const batchSize = 5;
+      for (let i = 0; i < fields.length; i += batchSize) {
+        const batch = fields.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(async (field) => {
+            const context = await extractFieldContext(pdfBytes, field);
+            contextMap.set(field.name, context);
+          })
+        );
+      }
     }
 
     const aiLabels = await generateAILabels(fields, contextMap, openaiApiKey);
-    console.log(`Generated ${aiLabels.size} AI labels out of ${fields.length} fields`);
+    console.log(
+      `Generated ${aiLabels.size} AI labels out of ${fields.length} fields`,
+      preBuiltContexts ? '(client-supplied contexts)' : '(server-extracted contexts)'
+    );
 
     return fields.map((field) => {
       const aiLabel = aiLabels.get(field.name);
