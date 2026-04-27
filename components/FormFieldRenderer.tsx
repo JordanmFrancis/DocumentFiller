@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { PDFField, FormValues } from '@/types/pdf';
 import FieldInput from './FieldInput';
 import FieldLabelEditor from './FieldLabelEditor';
-import { Eye, Check, Pin } from 'lucide-react';
+import { Eye, Check, Pin, RotateCcw } from 'lucide-react';
 
 interface FormFieldRendererProps {
   fields: PDFField[];
@@ -24,6 +24,7 @@ interface FormFieldRendererProps {
   onPin?: (fieldName: string) => void;
   onUnpin?: (fieldName: string) => void;
   canPin?: boolean;
+  onUpdateDefault?: (fieldName: string) => void;
 }
 
 const sortFieldsByDocumentOrder = (fields: PDFField[]): PDFField[] => {
@@ -71,6 +72,13 @@ function isPinnableValue(field: PDFField, value: any): boolean {
   return true;
 }
 
+function formatDefaultPreview(field: PDFField, value: any): string {
+  if (field.type === 'checkbox') return value ? 'checked' : 'unchecked';
+  const str = String(value ?? '');
+  const trimmed = str.length > 30 ? `${str.slice(0, 30)}…` : str;
+  return `"${trimmed}"`;
+}
+
 export default function FormFieldRenderer({
   fields,
   values,
@@ -85,6 +93,7 @@ export default function FormFieldRenderer({
   onPin,
   onUnpin,
   canPin = true,
+  onUpdateDefault,
 }: FormFieldRendererProps) {
   const sortedFields = useMemo(() => sortFieldsByDocumentOrder(fields), [fields]);
   const sections = useMemo(() => groupIntoSections(sortedFields), [sortedFields]);
@@ -212,6 +221,24 @@ export default function FormFieldRenderer({
                     error={errors?.[field.name]}
                     isPristineDefault={untouchedDefaults?.has(field.name) ?? false}
                   />
+                  {onUpdateDefault && defaultValues && (() => {
+                    const stored = defaultValues[field.name];
+                    const current = values[field.name];
+                    if (stored === undefined) return null;
+                    // Prompt only when current is non-empty and differs from stored.
+                    if (current === undefined || current === null || current === '') return null;
+                    if (current === stored) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateDefault(field.name)}
+                        className="mt-1.5 inline-flex items-center gap-1 text-[12px] text-accent hover:underline"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Update default to {formatDefaultPreview(field, current)}
+                      </button>
+                    );
+                  })()}
                 </div>
               );
             })}
