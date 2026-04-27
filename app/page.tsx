@@ -40,6 +40,7 @@ export default function HomePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fields, setFields] = useState<PDFField[]>([]);
   const [formValues, setFormValues] = useState<FormValues>({});
+  const [untouchedDefaults, setUntouchedDefaults] = useState<Set<string>>(new Set());
   const [currentDocument, setCurrentDocument] = useState<PDFDocument | null>(null);
   const [processing, setProcessing] = useState(false);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
