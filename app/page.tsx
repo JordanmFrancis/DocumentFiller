@@ -30,6 +30,7 @@ import { detectVisualFields } from '@/lib/visualFieldDetector';
 import { detectAIVisionFields } from '@/lib/aiVisualFieldDetector';
 import { detectAnnotationFields } from '@/lib/annotationFieldDetector';
 import { extractFieldContextsClient } from '@/lib/extractFieldContextsClient';
+import { labelFieldsWithVision } from '@/lib/aiLabelGeneratorVision';
 
 type ViewMode = 'list' | 'upload' | 'form' | 'loading';
 
@@ -108,34 +109,52 @@ export default function HomePage() {
     const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
     const modifiedFile = new File([blob], file.name, { type: 'application/pdf' });
 
-    // 2) If AI labeling is enabled, extract per-field context client-side
-    //    (pdf.js works reliably in the browser, unlike server-side pdfjs-dist
-    //    on Vercel serverless), then send fields + contexts to
-    //    /api/label-fields for the OpenAI call. Best-effort throughout.
+    // 2) If AI labeling is enabled, run the vision labeler: render each
+    //    page with red numbered overlays on the field boxes, ask GPT-4o-mini
+    //    to read the label off the form. Much more accurate than the
+    //    text-proximity heuristic because the model sees the actual layout.
+    //
+    //    If vision produces no improvement (e.g. API key missing, network
+    //    failure), fall back to the text-context approach so we still
+    //    benefit on Tier 1 setups where the older path was working.
     let finalFields = inferredFields;
     if (useAILabelingFlag) {
+      // Detect "trivial" labels that would benefit from AI relabeling.
+      // Tier 2 produces strings like "Field 1", "Checkbox 3"; Tier 1's raw
+      // names also start trivial in many forms.
+      const isTrivial = (label: string | undefined) =>
+        !label || /^(field|checkbox)\s+\d+$/i.test(label.trim());
+      const initialTrivialCount = inferredFields.filter((f) => isTrivial(f.label)).length;
+
       try {
-        let contexts: Record<string, string> = {};
-        try {
-          contexts = await extractFieldContextsClient(modifiedFile, inferredFields);
-        } catch (e) {
-          console.warn('Client-side context extraction failed; proceeding without:', e);
-        }
-
-        const labelForm = new FormData();
-        labelForm.append('file', modifiedFile);
-        labelForm.append('fields', JSON.stringify(inferredFields));
-        labelForm.append('contexts', JSON.stringify(contexts));
-
-        const labelResponse = await fetch('/api/label-fields', {
-          method: 'POST',
-          body: labelForm,
-        });
-        if (labelResponse.ok) {
-          const data = await labelResponse.json();
-          if (Array.isArray(data.fields)) finalFields = data.fields;
+        const visionLabeled = await labelFieldsWithVision(modifiedFile, inferredFields);
+        const trivialAfterVision = visionLabeled.filter((f) => isTrivial(f.label)).length;
+        // Vision produced at least one improvement → use its results.
+        if (trivialAfterVision < initialTrivialCount) {
+          finalFields = visionLabeled;
         } else {
-          console.warn('AI labeling returned non-OK:', labelResponse.status);
+          // Vision didn't help (no key, error, model bailed). Fall back to
+          // text-context labeling.
+          let contexts: Record<string, string> = {};
+          try {
+            contexts = await extractFieldContextsClient(modifiedFile, inferredFields);
+          } catch (e) {
+            console.warn('Client-side context extraction failed; proceeding without:', e);
+          }
+          const labelForm = new FormData();
+          labelForm.append('file', modifiedFile);
+          labelForm.append('fields', JSON.stringify(inferredFields));
+          labelForm.append('contexts', JSON.stringify(contexts));
+          const labelResponse = await fetch('/api/label-fields', {
+            method: 'POST',
+            body: labelForm,
+          });
+          if (labelResponse.ok) {
+            const data = await labelResponse.json();
+            if (Array.isArray(data.fields)) finalFields = data.fields;
+          } else {
+            console.warn('Text-context AI labeling returned non-OK:', labelResponse.status);
+          }
         }
       } catch (e) {
         console.warn('AI labeling failed for inferred fields:', e);
