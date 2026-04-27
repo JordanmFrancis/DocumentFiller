@@ -1,13 +1,56 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ZoomIn, ZoomOut, FileText } from 'lucide-react';
-import { PDFField } from '@/types/pdf';
+import { ZoomIn, ZoomOut, FileText, Check } from 'lucide-react';
+import { PDFField, FormValues } from '@/types/pdf';
 
 interface PDFPreviewProps {
   pdfFile: File | Blob | string | null;
   activeField?: PDFField | null;
+  fields?: PDFField[];
+  values?: FormValues;
   className?: string;
+}
+
+interface ViewportRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+// Convert a stored field position (PDF user-space, top-left origin) into
+// a CSS-ready rectangle in the canvas's pixel space. Returns null when the
+// field isn't on the current page or the viewport math fails.
+function computeFieldRect(
+  position: { x: number; y: number; width: number; height: number; page: number },
+  viewport: any,
+  pageSize: { width: number; height: number },
+  currentPage: number,
+): ViewportRect | null {
+  if (position.page !== currentPage - 1 || !viewport || !pageSize.width) return null;
+  const { x: pdfX, y: pdfY, width: pdfW, height: pdfH } = position;
+  const yMin = pageSize.height - (pdfY + pdfH);
+  const yMax = pageSize.height - pdfY;
+  let viewportRect: number[];
+  try {
+    viewportRect = viewport.convertToViewportRectangle([pdfX, yMin, pdfX + pdfW, yMax]);
+  } catch {
+    return null;
+  }
+  return {
+    left: Math.min(viewportRect[0], viewportRect[2]),
+    top: Math.min(viewportRect[1], viewportRect[3]),
+    width: Math.abs(viewportRect[0] - viewportRect[2]),
+    height: Math.abs(viewportRect[1] - viewportRect[3]),
+  };
+}
+
+function isMeaningfullyFilled(field: PDFField, value: any): boolean {
+  if (value === undefined || value === null) return false;
+  if (field.type === 'checkbox') return value === true;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  return true;
 }
 
 // Read-only PDF preview for the right pane of the form view. Loads PDF.js
@@ -18,7 +61,7 @@ interface PDFPreviewProps {
 //   - draws a green highlight overlay on top of the canvas at the field's
 //     coordinates (using viewport.convertToViewportRectangle for the math)
 //   - scrolls the highlight into view inside the canvas viewport
-export default function PDFPreview({ pdfFile, activeField, className = '' }: PDFPreviewProps) {
+export default function PDFPreview({ pdfFile, activeField, fields, values, className = '' }: PDFPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const viewportContainerRef = useRef<HTMLDivElement>(null);
@@ -164,38 +207,31 @@ export default function PDFPreview({ pdfFile, activeField, className = '' }: PDF
   // Mirrors the math used in PDFViewerEditor: stored Y is top-left, but
   // PDF.js viewport.convertToViewportRectangle expects bottom-left coords.
   const overlayStyle = useMemo(() => {
-    if (
-      !activeField?.position ||
-      activeField.position.page !== currentPage - 1 ||
-      !viewport ||
-      !pageSize.width
-    ) {
-      return null;
-    }
-
-    const { x: pdfX, y: pdfY, width: pdfW, height: pdfH } = activeField.position;
-    const yMin = pageSize.height - (pdfY + pdfH);
-    const yMax = pageSize.height - pdfY;
-
-    let viewportRect: number[];
-    try {
-      viewportRect = viewport.convertToViewportRectangle([pdfX, yMin, pdfX + pdfW, yMax]);
-    } catch {
-      return null;
-    }
-
-    const left = Math.min(viewportRect[0], viewportRect[2]);
-    const top = Math.min(viewportRect[1], viewportRect[3]);
-    const width = Math.abs(viewportRect[0] - viewportRect[2]);
-    const height = Math.abs(viewportRect[1] - viewportRect[3]);
-
+    if (!activeField?.position) return null;
+    const rect = computeFieldRect(activeField.position, viewport, pageSize, currentPage);
+    if (!rect) return null;
     return {
-      left: `${left}px`,
-      top: `${top}px`,
-      width: `${width}px`,
-      height: `${height}px`,
+      left: `${rect.left}px`,
+      top: `${rect.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
     };
   }, [activeField, viewport, pageSize, currentPage]);
+
+  // Per-field rendered values for the live preview overlay. Only fields with
+  // a non-empty value AND a known position on the current page get an entry.
+  const filledOverlays = useMemo(() => {
+    if (!fields || !values || !viewport || !pageSize.width) return [];
+    return fields
+      .map((field) => {
+        if (!field.position) return null;
+        if (!isMeaningfullyFilled(field, values[field.name])) return null;
+        const rect = computeFieldRect(field.position, viewport, pageSize, currentPage);
+        if (!rect) return null;
+        return { field, rect, value: values[field.name] };
+      })
+      .filter((entry): entry is { field: PDFField; rect: ViewportRect; value: any } => entry !== null);
+  }, [fields, values, viewport, pageSize, currentPage]);
 
   // Scroll the overlay into view inside the viewport container so the user
   // can see the highlighted box even on long/zoomed pages.
@@ -315,6 +351,53 @@ export default function PDFPreview({ pdfFile, activeField, className = '' }: PDF
               className="co-page-fade bg-white shadow-md ring-1 ring-rule rounded-sm block"
               style={{ opacity: pageOpacity }}
             />
+
+            {/* Live filled values — text/checkbox/etc rendered at each field's
+                position. Updates in real time as the user types in the form. */}
+            {canvasSize.width > 0 &&
+              filledOverlays.map(({ field, rect, value }) => {
+                const isCheckbox = field.type === 'checkbox';
+                // Font-size scales with the box height; fits one line snugly.
+                const fontSize = Math.max(8, Math.min(rect.height * 0.65, 20));
+                return (
+                  <div
+                    key={`fill-${field.name}`}
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: `${rect.left}px`,
+                      top: `${rect.top}px`,
+                      width: `${rect.width}px`,
+                      height: `${rect.height}px`,
+                      zIndex: 5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: isCheckbox ? 'center' : 'flex-start',
+                      paddingLeft: isCheckbox ? 0 : Math.max(2, rect.height * 0.15),
+                      paddingRight: isCheckbox ? 0 : Math.max(2, rect.height * 0.15),
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      color: '#111',
+                      fontSize: `${fontSize}px`,
+                      fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+                      lineHeight: 1,
+                    }}
+                  >
+                    {isCheckbox ? (
+                      <Check
+                        strokeWidth={3}
+                        style={{
+                          width: Math.min(rect.width, rect.height) * 0.8,
+                          height: Math.min(rect.width, rect.height) * 0.8,
+                          color: '#111',
+                        }}
+                      />
+                    ) : (
+                      String(value)
+                    )}
+                  </div>
+                );
+              })}
+
             {overlayStyle && canvasSize.width > 0 && (
               <div
                 // Re-mount on activeField/page change so the in-animation
