@@ -468,6 +468,23 @@ export default function HomePage() {
     }
   };
 
+  const handleUpdateDefault = async (fieldName: string) => {
+    if (!currentDocument) return;
+    const value = formValues[fieldName];
+    if (value === undefined || value === null || value === '') return;
+
+    const prevDefaults = currentDocument.defaultValues ?? {};
+    const nextDefaults = { ...prevDefaults, [fieldName]: value };
+
+    setCurrentDocument({ ...currentDocument, defaultValues: nextDefaults });
+    try {
+      await updateDocument(currentDocument.id, { defaultValues: nextDefaults });
+    } catch (error) {
+      console.warn('Error updating default:', error);
+      setCurrentDocument({ ...currentDocument, defaultValues: prevDefaults });
+    }
+  };
+
   const handleFieldsCreated = async (createdFields: PDFField[], modifiedPdfBytes: Uint8Array) => {
     const pdfArrayBuffer = new ArrayBuffer(modifiedPdfBytes.length);
     new Uint8Array(pdfArrayBuffer).set(modifiedPdfBytes);
@@ -762,6 +779,7 @@ export default function HomePage() {
                 defaultValues={currentDocument?.defaultValues}
                 onPin={handlePin}
                 onUnpin={handleUnpin}
+                onUpdateDefault={handleUpdateDefault}
                 canPin={!!currentDocument}
               />
             </div>
