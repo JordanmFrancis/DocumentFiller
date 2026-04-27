@@ -23,7 +23,6 @@ interface FormFieldRendererProps {
   defaultValues?: Record<string, string | boolean | number>;
   onPin?: (fieldName: string) => void;
   onUnpin?: (fieldName: string) => void;
-  canPin?: boolean;
   onUpdateDefault?: (fieldName: string) => void;
 }
 
@@ -92,7 +91,6 @@ export default function FormFieldRenderer({
   defaultValues,
   onPin,
   onUnpin,
-  canPin = true,
   onUpdateDefault,
 }: FormFieldRendererProps) {
   const sortedFields = useMemo(() => sortFieldsByDocumentOrder(fields), [fields]);
@@ -160,13 +158,11 @@ export default function FormFieldRenderer({
                     {(onPin || onUnpin) && (() => {
                       const hasDefault = defaultValues?.[field.name] !== undefined;
                       const fieldValue = values[field.name];
-                      const canPinNow = canPin && isPinnableValue(field, fieldValue);
+                      const canPinNow = isPinnableValue(field, fieldValue);
                       const disabled = !hasDefault && !canPinNow;
                       let title: string;
                       if (hasDefault) {
                         title = 'Remove saved default';
-                      } else if (!canPin) {
-                        title = 'Save the template first to pin defaults';
                       } else if (!canPinNow) {
                         title = 'Type a value to pin as default';
                       } else {

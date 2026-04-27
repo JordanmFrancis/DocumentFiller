@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/components/Auth/AuthProvider';
@@ -435,11 +435,50 @@ export default function HomePage() {
     });
   };
 
+  // Guards against double auto-create when the user pins multiple fields
+  // before the first save finishes. Subsequent clicks during the in-flight
+  // create are ignored; once the doc exists they go through the normal path.
+  const creatingDocRef = useRef(false);
+
   const handlePin = async (fieldName: string) => {
-    if (!currentDocument) return;
+    if (!user) return;
     const value = formValues[fieldName];
     // isPinnableValue guard happens in the UI; this is a defensive check.
     if (value === undefined || value === null || value === '' || value === false) return;
+
+    // First-pin auto-save: no document yet, so create one with this pin baked in.
+    if (!currentDocument) {
+      if (!selectedFile || fields.length === 0) return;
+      if (creatingDocRef.current) return;
+      creatingDocRef.current = true;
+      try {
+        const documentId = `doc_${Date.now()}`;
+        const pdfPath = `users/${user.uid}/documents/${documentId}/original.pdf`;
+        const pdfUrl = await uploadPDF(selectedFile, pdfPath);
+        const newDefaults = { [fieldName]: value };
+        await saveDocument(user.uid, documentId, {
+          name: selectedFile.name,
+          originalPdfUrl: pdfUrl,
+          fieldDefinitions: fields,
+          defaultValues: newDefaults,
+        });
+        setCurrentDocument({
+          id: documentId,
+          name: selectedFile.name,
+          originalPdfUrl: pdfUrl,
+          fieldDefinitions: fields,
+          defaultValues: newDefaults,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        loadDocuments();
+      } catch (error) {
+        console.warn('Error auto-saving template on first pin:', error);
+      } finally {
+        creatingDocRef.current = false;
+      }
+      return;
+    }
 
     const prevDefaults = currentDocument.defaultValues ?? {};
     const nextDefaults = { ...prevDefaults, [fieldName]: value };
@@ -789,7 +828,6 @@ export default function HomePage() {
                 onPin={handlePin}
                 onUnpin={handleUnpin}
                 onUpdateDefault={handleUpdateDefault}
-                canPin={!!currentDocument}
               />
             </div>
 
