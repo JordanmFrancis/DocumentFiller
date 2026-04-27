@@ -20,6 +20,7 @@ export interface DocumentData {
   name: string;
   originalPdfUrl: string;
   fieldDefinitions: PDFField[];
+  defaultValues?: Record<string, string | boolean | number>;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   userId: string;
