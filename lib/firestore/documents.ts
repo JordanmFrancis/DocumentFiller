@@ -20,6 +20,7 @@ export interface DocumentData {
   name: string;
   originalPdfUrl: string;
   fieldDefinitions: PDFField[];
+  defaultValues?: Record<string, string | boolean | number>;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   userId: string;
@@ -149,3 +150,19 @@ export const addFilledPDF = async (
     ],
   });
 };
+
+/**
+ * Drops entries from a defaults map whose field no longer exists.
+ * Use whenever fieldDefinitions is replaced wholesale (e.g. via the
+ * field creator or visual editor).
+ */
+export function pruneDefaults(
+  fields: PDFField[],
+  defaults: Record<string, string | boolean | number> | undefined
+): Record<string, string | boolean | number> {
+  if (!defaults) return {};
+  const validNames = new Set(fields.map((f) => f.name));
+  return Object.fromEntries(
+    Object.entries(defaults).filter(([name]) => validNames.has(name))
+  );
+}

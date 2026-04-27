@@ -12,7 +12,7 @@ import PDFPreview from '@/components/PDFPreview';
 import { PDFField, PDFDocument, FormValues } from '@/types/pdf';
 import { fillPDF } from '@/lib/pdfFiller';
 import { uploadPDF, downloadPDF } from '@/lib/firestore/storage';
-import { saveDocument, getUserDocuments, deleteDocument, updateDocument } from '@/lib/firestore/documents';
+import { saveDocument, getUserDocuments, deleteDocument, updateDocument, pruneDefaults } from '@/lib/firestore/documents';
 import {
   Save,
   Loader2,
@@ -40,6 +40,7 @@ export default function HomePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fields, setFields] = useState<PDFField[]>([]);
   const [formValues, setFormValues] = useState<FormValues>({});
+  const [untouchedDefaults, setUntouchedDefaults] = useState<Set<string>>(new Set());
   const [currentDocument, setCurrentDocument] = useState<PDFDocument | null>(null);
   const [processing, setProcessing] = useState(false);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
@@ -172,6 +173,7 @@ export default function HomePage() {
       const tier1Fields = Array.from(fieldMap.values());
 
       setFormValues({});
+      setUntouchedDefaults(new Set());
 
       // Tier 1: AcroForm widgets
       if (tier1Fields.length > 0) {
@@ -234,6 +236,12 @@ export default function HomePage() {
 
   const handleFormChange = (fieldName: string, value: any) => {
     setFormValues((prev) => ({ ...prev, [fieldName]: value }));
+    setUntouchedDefaults((prev) => {
+      if (!prev.has(fieldName)) return prev;
+      const next = new Set(prev);
+      next.delete(fieldName);
+      return next;
+    });
     setAutoSavedAt(new Date());
   };
 
@@ -314,7 +322,8 @@ export default function HomePage() {
 
   const handleDocumentSelect = async (doc: PDFDocument) => {
     setCurrentDocument(doc);
-    setFormValues({});
+    setFormValues({ ...(doc.defaultValues ?? {}) });
+    setUntouchedDefaults(new Set(Object.keys(doc.defaultValues ?? {})));
     setViewMode('loading');
     setProcessing(true);
 
@@ -397,6 +406,7 @@ export default function HomePage() {
     setSelectedFile(null);
     setFields([]);
     setFormValues({});
+    setUntouchedDefaults(new Set());
     setCurrentDocument(null);
   };
 
@@ -417,6 +427,62 @@ export default function HomePage() {
   // eye icon — drives the highlight + auto-page-jump in PDFPreview.
   const handleFieldFocus = (fieldName: string) => {
     setActiveFieldName(fieldName);
+    setUntouchedDefaults((prev) => {
+      if (!prev.has(fieldName)) return prev;
+      const next = new Set(prev);
+      next.delete(fieldName);
+      return next;
+    });
+  };
+
+  const handlePin = async (fieldName: string) => {
+    if (!currentDocument) return;
+    const value = formValues[fieldName];
+    // isPinnableValue guard happens in the UI; this is a defensive check.
+    if (value === undefined || value === null || value === '' || value === false) return;
+
+    const prevDefaults = currentDocument.defaultValues ?? {};
+    const nextDefaults = { ...prevDefaults, [fieldName]: value };
+
+    setCurrentDocument({ ...currentDocument, defaultValues: nextDefaults });
+    try {
+      await updateDocument(currentDocument.id, { defaultValues: nextDefaults });
+    } catch (error) {
+      console.warn('Error pinning default:', error);
+      setCurrentDocument({ ...currentDocument, defaultValues: prevDefaults });
+    }
+  };
+
+  const handleUnpin = async (fieldName: string) => {
+    if (!currentDocument) return;
+    const prevDefaults = currentDocument.defaultValues ?? {};
+    const nextDefaults = { ...prevDefaults };
+    delete nextDefaults[fieldName];
+
+    setCurrentDocument({ ...currentDocument, defaultValues: nextDefaults });
+    try {
+      await updateDocument(currentDocument.id, { defaultValues: nextDefaults });
+    } catch (error) {
+      console.warn('Error unpinning default:', error);
+      setCurrentDocument({ ...currentDocument, defaultValues: prevDefaults });
+    }
+  };
+
+  const handleUpdateDefault = async (fieldName: string) => {
+    if (!currentDocument) return;
+    const value = formValues[fieldName];
+    if (value === undefined || value === null || value === '') return;
+
+    const prevDefaults = currentDocument.defaultValues ?? {};
+    const nextDefaults = { ...prevDefaults, [fieldName]: value };
+
+    setCurrentDocument({ ...currentDocument, defaultValues: nextDefaults });
+    try {
+      await updateDocument(currentDocument.id, { defaultValues: nextDefaults });
+    } catch (error) {
+      console.warn('Error updating default:', error);
+      setCurrentDocument({ ...currentDocument, defaultValues: prevDefaults });
+    }
   };
 
   const handleFieldsCreated = async (createdFields: PDFField[], modifiedPdfBytes: Uint8Array) => {
@@ -434,7 +500,16 @@ export default function HomePage() {
       try {
         const pdfPath = `users/${user.uid}/documents/${currentDocument.id}/original.pdf`;
         await uploadPDF(modifiedFile, pdfPath);
-        await updateDocument(currentDocument.id, { fieldDefinitions: createdFields });
+        const prunedDefaults = pruneDefaults(createdFields, currentDocument.defaultValues);
+        await updateDocument(currentDocument.id, {
+          fieldDefinitions: createdFields,
+          defaultValues: prunedDefaults,
+        });
+        setCurrentDocument({
+          ...currentDocument,
+          fieldDefinitions: createdFields,
+          defaultValues: prunedDefaults,
+        });
       } catch (error) {
         console.error('Error saving modified PDF:', error);
       }
@@ -709,6 +784,12 @@ export default function HomePage() {
                 onFieldFocus={handleFieldFocus}
                 activeFieldName={activeFieldName}
                 editableLabels={true}
+                untouchedDefaults={untouchedDefaults}
+                defaultValues={currentDocument?.defaultValues}
+                onPin={handlePin}
+                onUnpin={handleUnpin}
+                onUpdateDefault={handleUpdateDefault}
+                canPin={!!currentDocument}
               />
             </div>
 
@@ -810,7 +891,16 @@ export default function HomePage() {
           onFieldsChange={(updatedFields) => {
             setFields(updatedFields);
             if (currentDocument) {
-              updateDocument(currentDocument.id, { fieldDefinitions: updatedFields }).catch((error) => {
+              const prunedDefaults = pruneDefaults(updatedFields, currentDocument.defaultValues);
+              setCurrentDocument({
+                ...currentDocument,
+                fieldDefinitions: updatedFields,
+                defaultValues: prunedDefaults,
+              });
+              updateDocument(currentDocument.id, {
+                fieldDefinitions: updatedFields,
+                defaultValues: prunedDefaults,
+              }).catch((error) => {
                 console.error('Error updating document fields:', error);
               });
             }

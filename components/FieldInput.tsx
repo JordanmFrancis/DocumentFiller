@@ -9,15 +9,25 @@ interface FieldInputProps {
   onChange: (value: any) => void;
   onFocus?: () => void;
   error?: string;
+  isPristineDefault?: boolean;
 }
 
-export default function FieldInput({ field, value, onChange, onFocus, error }: FieldInputProps) {
+export default function FieldInput({
+  field,
+  value,
+  onChange,
+  onFocus,
+  error,
+  isPristineDefault,
+}: FieldInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const newValue = field.type === 'checkbox'
       ? (e.target as HTMLInputElement).checked
       : e.target.value;
     onChange(newValue);
   };
+
+  const pristineClass = isPristineDefault ? 'italic text-ink-faint' : '';
 
   return (
     <motion.div
@@ -32,7 +42,7 @@ export default function FieldInput({ field, value, onChange, onFocus, error }: F
           onChange={handleChange}
           onFocus={onFocus}
           aria-invalid={!!error}
-          className="input"
+          className={`input ${pristineClass}`}
           placeholder={`Enter ${(field.label || field.name).toLowerCase()}`}
         />
       )}
@@ -44,7 +54,7 @@ export default function FieldInput({ field, value, onChange, onFocus, error }: F
           onChange={handleChange}
           onFocus={onFocus}
           aria-invalid={!!error}
-          className="input"
+          className={`input ${pristineClass}`}
         />
       )}
 
@@ -55,7 +65,7 @@ export default function FieldInput({ field, value, onChange, onFocus, error }: F
           onChange={handleChange}
           onFocus={onFocus}
           aria-invalid={!!error}
-          className="input"
+          className={`input ${pristineClass}`}
           placeholder="Enter a number"
         />
       )}
@@ -81,7 +91,7 @@ export default function FieldInput({ field, value, onChange, onFocus, error }: F
           onChange={handleChange}
           onFocus={onFocus}
           aria-invalid={!!error}
-          className="input cursor-pointer"
+          className={`input cursor-pointer ${pristineClass}`}
         >
           <option value="">— Select —</option>
           {field.options.map((option) => (

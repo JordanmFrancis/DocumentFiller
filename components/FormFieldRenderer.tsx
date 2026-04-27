@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { PDFField, FormValues } from '@/types/pdf';
 import FieldInput from './FieldInput';
 import FieldLabelEditor from './FieldLabelEditor';
-import { Eye, Check } from 'lucide-react';
+import { Eye, Check, Pin, RotateCcw } from 'lucide-react';
 
 interface FormFieldRendererProps {
   fields: PDFField[];
@@ -19,6 +19,12 @@ interface FormFieldRendererProps {
   activeFieldName?: string | null;
   errors?: Record<string, string>;
   editableLabels?: boolean;
+  untouchedDefaults?: Set<string>;
+  defaultValues?: Record<string, string | boolean | number>;
+  onPin?: (fieldName: string) => void;
+  onUnpin?: (fieldName: string) => void;
+  canPin?: boolean;
+  onUpdateDefault?: (fieldName: string) => void;
 }
 
 const sortFieldsByDocumentOrder = (fields: PDFField[]): PDFField[] => {
@@ -59,6 +65,20 @@ function groupIntoSections(sorted: PDFField[]): { title?: string; fields: PDFFie
   return sections;
 }
 
+function isPinnableValue(field: PDFField, value: any): boolean {
+  if (field.type === 'checkbox') return value === true;
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  return true;
+}
+
+function formatDefaultPreview(field: PDFField, value: any): string {
+  if (field.type === 'checkbox') return value ? 'checked' : 'unchecked';
+  const str = String(value ?? '');
+  const trimmed = str.length > 30 ? `${str.slice(0, 30)}…` : str;
+  return `"${trimmed}"`;
+}
+
 export default function FormFieldRenderer({
   fields,
   values,
@@ -68,6 +88,12 @@ export default function FormFieldRenderer({
   activeFieldName,
   errors,
   editableLabels = true,
+  untouchedDefaults,
+  defaultValues,
+  onPin,
+  onUnpin,
+  canPin = true,
+  onUpdateDefault,
 }: FormFieldRendererProps) {
   const sortedFields = useMemo(() => sortFieldsByDocumentOrder(fields), [fields]);
   const sections = useMemo(() => groupIntoSections(sortedFields), [sortedFields]);
@@ -131,6 +157,48 @@ export default function FormFieldRenderer({
                     {field.required && !isFilled && (
                       <span className="text-danger text-[13px]" title="Required">*</span>
                     )}
+                    {(onPin || onUnpin) && (() => {
+                      const hasDefault = defaultValues?.[field.name] !== undefined;
+                      const fieldValue = values[field.name];
+                      const canPinNow = canPin && isPinnableValue(field, fieldValue);
+                      const disabled = !hasDefault && !canPinNow;
+                      let title: string;
+                      if (hasDefault) {
+                        title = 'Remove saved default';
+                      } else if (!canPin) {
+                        title = 'Save the template first to pin defaults';
+                      } else if (!canPinNow) {
+                        title = 'Type a value to pin as default';
+                      } else {
+                        title = 'Pin this value as the default';
+                      }
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (disabled) return;
+                            if (hasDefault) onUnpin?.(field.name);
+                            else onPin?.(field.name);
+                          }}
+                          disabled={disabled}
+                          className={`p-1 rounded transition-all ${
+                            hasDefault
+                              ? 'text-accent hover:bg-accent-tint'
+                              : disabled
+                              ? 'text-ink-faint opacity-50 cursor-not-allowed'
+                              : 'text-ink-faint hover:text-ink hover:bg-paper-edge'
+                          }`}
+                          title={title}
+                          aria-label={title}
+                        >
+                          <Pin
+                            className="w-3.5 h-3.5"
+                            fill={hasDefault ? 'currentColor' : 'none'}
+                            strokeWidth={1.8}
+                          />
+                        </button>
+                      );
+                    })()}
                     {onFieldFocus && field.position && (
                       <button
                         onClick={() => onFieldFocus(field.name)}
@@ -151,7 +219,26 @@ export default function FormFieldRenderer({
                     onChange={(value) => onChange(field.name, value)}
                     onFocus={onFieldFocus ? () => onFieldFocus(field.name) : undefined}
                     error={errors?.[field.name]}
+                    isPristineDefault={untouchedDefaults?.has(field.name) ?? false}
                   />
+                  {onUpdateDefault && defaultValues && (() => {
+                    const stored = defaultValues[field.name];
+                    const current = values[field.name];
+                    if (stored === undefined) return null;
+                    // Prompt only when current is non-empty and differs from stored.
+                    if (current === undefined || current === null || current === '') return null;
+                    if (current === stored) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateDefault(field.name)}
+                        className="mt-1.5 inline-flex items-center gap-1 text-[12px] text-accent hover:underline"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Update default to {formatDefaultPreview(field, current)}
+                      </button>
+                    );
+                  })()}
                 </div>
               );
             })}
