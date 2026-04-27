@@ -25,6 +25,7 @@ export interface PDFDocument {
   name: string;
   originalPdfUrl: string;
   fieldDefinitions: PDFField[];
+  defaultValues?: Record<string, string | boolean | number>;
   createdAt: Date;
   updatedAt: Date;
   filledPdfs?: FilledPDF[];
