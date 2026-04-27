@@ -19,6 +19,7 @@ interface FormFieldRendererProps {
   activeFieldName?: string | null;
   errors?: Record<string, string>;
   editableLabels?: boolean;
+  untouchedDefaults?: Set<string>;
 }
 
 const sortFieldsByDocumentOrder = (fields: PDFField[]): PDFField[] => {
@@ -68,6 +69,7 @@ export default function FormFieldRenderer({
   activeFieldName,
   errors,
   editableLabels = true,
+  untouchedDefaults,
 }: FormFieldRendererProps) {
   const sortedFields = useMemo(() => sortFieldsByDocumentOrder(fields), [fields]);
   const sections = useMemo(() => groupIntoSections(sortedFields), [sortedFields]);
@@ -151,6 +153,7 @@ export default function FormFieldRenderer({
                     onChange={(value) => onChange(field.name, value)}
                     onFocus={onFieldFocus ? () => onFieldFocus(field.name) : undefined}
                     error={errors?.[field.name]}
+                    isPristineDefault={untouchedDefaults?.has(field.name) ?? false}
                   />
                 </div>
               );

@@ -725,6 +725,7 @@ export default function HomePage() {
                 onFieldFocus={handleFieldFocus}
                 activeFieldName={activeFieldName}
                 editableLabels={true}
+                untouchedDefaults={untouchedDefaults}
               />
             </div>
 
