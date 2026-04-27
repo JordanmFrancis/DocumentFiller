@@ -435,6 +435,39 @@ export default function HomePage() {
     });
   };
 
+  const handlePin = async (fieldName: string) => {
+    if (!currentDocument) return;
+    const value = formValues[fieldName];
+    // isPinnableValue guard happens in the UI; this is a defensive check.
+    if (value === undefined || value === null || value === '' || value === false) return;
+
+    const prevDefaults = currentDocument.defaultValues ?? {};
+    const nextDefaults = { ...prevDefaults, [fieldName]: value };
+
+    setCurrentDocument({ ...currentDocument, defaultValues: nextDefaults });
+    try {
+      await updateDocument(currentDocument.id, { defaultValues: nextDefaults });
+    } catch (error) {
+      console.warn('Error pinning default:', error);
+      setCurrentDocument({ ...currentDocument, defaultValues: prevDefaults });
+    }
+  };
+
+  const handleUnpin = async (fieldName: string) => {
+    if (!currentDocument) return;
+    const prevDefaults = currentDocument.defaultValues ?? {};
+    const nextDefaults = { ...prevDefaults };
+    delete nextDefaults[fieldName];
+
+    setCurrentDocument({ ...currentDocument, defaultValues: nextDefaults });
+    try {
+      await updateDocument(currentDocument.id, { defaultValues: nextDefaults });
+    } catch (error) {
+      console.warn('Error unpinning default:', error);
+      setCurrentDocument({ ...currentDocument, defaultValues: prevDefaults });
+    }
+  };
+
   const handleFieldsCreated = async (createdFields: PDFField[], modifiedPdfBytes: Uint8Array) => {
     const pdfArrayBuffer = new ArrayBuffer(modifiedPdfBytes.length);
     new Uint8Array(pdfArrayBuffer).set(modifiedPdfBytes);
@@ -726,6 +759,10 @@ export default function HomePage() {
                 activeFieldName={activeFieldName}
                 editableLabels={true}
                 untouchedDefaults={untouchedDefaults}
+                defaultValues={currentDocument?.defaultValues}
+                onPin={handlePin}
+                onUnpin={handleUnpin}
+                canPin={!!currentDocument}
               />
             </div>
 
