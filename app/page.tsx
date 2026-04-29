@@ -1201,9 +1201,11 @@ export default function HomePage() {
       {/* Rule Editor Modal */}
       {showRuleEditor && currentDocument && (
         <RuleEditor
+          documentId={currentDocument.id}
           rules={currentDocument.rules ?? []}
           fields={fields}
           formValues={formValues}
+          chatHistory={currentDocument.chatHistory ?? []}
           onClose={() => setShowRuleEditor(false)}
           onRulesChange={async (nextRules) => {
             const prev = currentDocument.rules ?? [];
@@ -1236,6 +1238,9 @@ export default function HomePage() {
             const result = applyRules(nextRules, baseline, overwritable, fields);
             setFormValues(result.newValues);
             setRuleTouched(result.ruleTouched);
+          }}
+          onChatHistoryChange={(nextHistory) => {
+            setCurrentDocument({ ...currentDocument, chatHistory: nextHistory });
           }}
         />
       )}

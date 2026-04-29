@@ -1,36 +1,70 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { Rule } from '@/types/rule';
+import { Rule, ChatMessage } from '@/types/rule';
 import { PDFField, FormValues } from '@/types/pdf';
 import { applyRules } from '@/lib/ruleEngine';
 import { pruneRules } from '@/lib/firestore/documents';
+import { appendChatMessage } from '@/lib/firestore/rules';
 import RuleList from './RuleList';
+import RuleChat from './RuleChat';
 
 interface RuleEditorProps {
+  documentId: string;
   rules: Rule[];
   fields: PDFField[];
   formValues: FormValues;
+  chatHistory: ChatMessage[];
   onClose: () => void;
   onRulesChange: (next: Rule[]) => void;
+  onChatHistoryChange: (next: ChatMessage[]) => void;
 }
 
 export default function RuleEditor({
+  documentId,
   rules,
   fields,
   formValues,
+  chatHistory,
   onClose,
   onRulesChange,
+  onChatHistoryChange,
 }: RuleEditorProps) {
-  // Annotate rules with missing-field refs for inline warnings.
   const annotatedRules = useMemo(() => pruneRules(fields, rules), [fields, rules]);
-
-  // Compute live conflicts so the user sees them update as they edit rules.
   const conflicts = useMemo(() => {
     const result = applyRules(rules, formValues, new Set(fields.map((f) => f.name)), fields);
     return result.conflicts;
   }, [rules, formValues, fields]);
+
+  async function applyMutationsAndMessages(
+    mutations: any[],
+    appendMessages: ChatMessage[]
+  ) {
+    let nextRules = rules;
+    for (const m of mutations) {
+      if (m.kind === 'add' && m.rule) {
+        nextRules = [...nextRules, m.rule];
+      } else if (m.kind === 'edit' && m.ruleId === '__replace_all__' && m.patch?._replaceAll) {
+        nextRules = m.patch._replaceAll;
+      } else if (m.kind === 'edit' && m.ruleId && m.patch?._delete) {
+        nextRules = nextRules.filter((r) => r.id !== m.ruleId);
+      } else if (m.kind === 'edit' && m.ruleId && m.patch) {
+        nextRules = nextRules.map((r) =>
+          r.id === m.ruleId ? { ...r, ...m.patch } : r
+        );
+      }
+    }
+    if (nextRules !== rules) onRulesChange(nextRules);
+
+    if (appendMessages.length > 0) {
+      let history = chatHistory;
+      for (const msg of appendMessages) {
+        history = await appendChatMessage(documentId, history, msg);
+      }
+      onChatHistoryChange(history);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-paper">
@@ -52,11 +86,13 @@ export default function RuleEditor({
             />
           </div>
 
-          <div className="border-l border-paper-edge pl-6 overflow-y-auto">
-            <div className="text-center py-12 text-sm text-ink-faint">
-              <p className="mb-2">Plain-English rule chat</p>
-              <p className="text-xs">Coming in the next ship.</p>
-            </div>
+          <div className="border-l border-paper-edge pl-6 overflow-hidden flex flex-col">
+            <RuleChat
+              rules={rules}
+              fields={fields}
+              history={chatHistory}
+              onApplyMutations={applyMutationsAndMessages}
+            />
           </div>
         </div>
       </div>
