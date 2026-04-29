@@ -13,6 +13,8 @@ import { PDFField, PDFDocument, FormValues } from '@/types/pdf';
 import { fillPDF } from '@/lib/pdfFiller';
 import { uploadPDF, downloadPDF } from '@/lib/firestore/storage';
 import { saveDocument, getUserDocuments, deleteDocument, updateDocument, pruneDefaults } from '@/lib/firestore/documents';
+import { getProfile } from '@/lib/firestore/profile';
+import { ProfileDefaults } from '@/types/user';
 import {
   Save,
   Loader2,
@@ -32,6 +34,38 @@ import { detectAnnotationFields } from '@/lib/annotationFieldDetector';
 import { extractFieldContextsClient } from '@/lib/extractFieldContextsClient';
 import { labelFieldsWithVision } from '@/lib/aiLabelGeneratorVision';
 
+function applyProfileDefaults(
+  fields: PDFField[],
+  profile: ProfileDefaults | null,
+  baseValues: Record<string, string | boolean | number>
+): Record<string, string | boolean | number> {
+  if (!profile || profile.defaults.length === 0) return baseValues;
+
+  // Build a label -> value map for O(1) lookup. Last-write-wins on duplicates.
+  const profileMap = new Map<string, string | boolean | number>();
+  for (const { label, value } of profile.defaults) {
+    profileMap.set(label.trim().toLowerCase(), value);
+  }
+
+  const result: Record<string, string | boolean | number> = { ...baseValues };
+  for (const field of fields) {
+    if (field.type === 'checkbox') continue; // booleans are never "empty"
+    const existing = result[field.name];
+    const isEmpty =
+      existing === undefined ||
+      existing === null ||
+      (typeof existing === 'string' && existing === '');
+    if (!isEmpty) continue;
+
+    const labelKey = (field.label || field.name).trim().toLowerCase();
+    const profileValue = profileMap.get(labelKey);
+    if (profileValue !== undefined) {
+      result[field.name] = profileValue;
+    }
+  }
+  return result;
+}
+
 type ViewMode = 'list' | 'upload' | 'form' | 'loading';
 
 export default function HomePage() {
@@ -39,6 +73,7 @@ export default function HomePage() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [documents, setDocuments] = useState<PDFDocument[]>([]);
+  const [profileDefaults, setProfileDefaults] = useState<ProfileDefaults | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fields, setFields] = useState<PDFField[]>([]);
   const [formValues, setFormValues] = useState<FormValues>({});
@@ -66,6 +101,15 @@ export default function HomePage() {
   useEffect(() => {
     if (user) {
       loadDocuments();
+      (async () => {
+        try {
+          const p = await getProfile(user.uid);
+          setProfileDefaults(p);
+        } catch (e) {
+          console.warn('Error loading profile defaults:', e);
+          setProfileDefaults({ uid: user.uid, defaults: [], updatedAt: new Date() });
+        }
+      })();
       const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
       if (!hasSeenOnboarding) {
         setTimeout(() => setShowOnboarding(true), 500);
@@ -378,8 +422,15 @@ export default function HomePage() {
 
   const handleDocumentSelect = async (doc: PDFDocument) => {
     setCurrentDocument(doc);
-    setFormValues({ ...(doc.defaultValues ?? {}) });
-    setUntouchedDefaults(new Set(Object.keys(doc.defaultValues ?? {})));
+    // Layer: profile (lowest) -> doc defaults (overrides profile).
+    const withProfile = applyProfileDefaults(
+      doc.fieldDefinitions,
+      profileDefaults,
+      {}
+    );
+    const layered = { ...withProfile, ...(doc.defaultValues ?? {}) };
+    setFormValues(layered);
+    setUntouchedDefaults(new Set(Object.keys(layered)));
     setViewMode('loading');
     setProcessing(true);
 
