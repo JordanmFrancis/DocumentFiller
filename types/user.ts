@@ -4,10 +4,15 @@ export interface User extends FirebaseUser {
   // Additional user properties can be added here
 }
 
-export interface UserProfile {
+/**
+ * Per-user profile values that auto-fill across every document the user opens,
+ * matched by case-insensitive field label.
+ */
+export interface ProfileDefaults {
   uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
-  provider: 'google' | 'apple' | 'email';
+  defaults: Array<{
+    label: string;
+    value: string | boolean | number;
+  }>;
+  updatedAt: Date;
 }

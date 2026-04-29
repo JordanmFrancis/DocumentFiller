@@ -1,3 +1,5 @@
+import type { Rule, ChatMessage } from './rule';
+
 export type PDFFieldType = 'text' | 'checkbox' | 'radio' | 'dropdown' | 'date' | 'number';
 
 export interface PDFFieldPosition {
@@ -26,6 +28,8 @@ export interface PDFDocument {
   originalPdfUrl: string;
   fieldDefinitions: PDFField[];
   defaultValues?: Record<string, string | boolean | number>;
+  rules?: Rule[];                 // NEW — ordered; index = firing priority
+  chatHistory?: ChatMessage[];    // NEW — bounded to last 50 turns
   createdAt: Date;
   updatedAt: Date;
   filledPdfs?: FilledPDF[];

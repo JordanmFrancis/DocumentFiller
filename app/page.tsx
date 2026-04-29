@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/components/Auth/AuthProvider';
@@ -12,7 +12,9 @@ import PDFPreview from '@/components/PDFPreview';
 import { PDFField, PDFDocument, FormValues } from '@/types/pdf';
 import { fillPDF } from '@/lib/pdfFiller';
 import { uploadPDF, downloadPDF } from '@/lib/firestore/storage';
-import { saveDocument, getUserDocuments, deleteDocument, updateDocument, pruneDefaults } from '@/lib/firestore/documents';
+import { saveDocument, getUserDocuments, deleteDocument, updateDocument, pruneDefaults, pruneRules } from '@/lib/firestore/documents';
+import { getProfile } from '@/lib/firestore/profile';
+import { ProfileDefaults } from '@/types/user';
 import {
   Save,
   Loader2,
@@ -22,6 +24,7 @@ import {
   ArrowLeft,
   ArrowUp,
   Plus,
+  Settings2,
   Search,
   X,
 } from 'lucide-react';
@@ -33,6 +36,57 @@ import { detectAIVisionFields } from '@/lib/aiVisualFieldDetector';
 import { detectAnnotationFields } from '@/lib/annotationFieldDetector';
 import { extractFieldContextsClient } from '@/lib/extractFieldContextsClient';
 import { labelFieldsWithVision } from '@/lib/aiLabelGeneratorVision';
+import { Rule } from '@/types/rule';
+import { applyRules } from '@/lib/ruleEngine';
+import { saveRules } from '@/lib/firestore/rules';
+import RuleEditor from '@/components/Rules/RuleEditor';
+
+function applyProfileDefaults(
+  fields: PDFField[],
+  profile: ProfileDefaults | null,
+  baseValues: Record<string, string | boolean | number>
+): Record<string, string | boolean | number> {
+  if (!profile || profile.defaults.length === 0) return baseValues;
+
+  // Build a label -> value map for O(1) lookup. Last-write-wins on duplicates.
+  const profileMap = new Map<string, string | boolean | number>();
+  for (const { label, value } of profile.defaults) {
+    profileMap.set(label.trim().toLowerCase(), value);
+  }
+
+  const result: Record<string, string | boolean | number> = { ...baseValues };
+  for (const field of fields) {
+    if (field.type === 'checkbox') continue; // booleans are never "empty"
+    const existing = result[field.name];
+    const isEmpty =
+      existing === undefined ||
+      existing === null ||
+      (typeof existing === 'string' && existing === '');
+    if (!isEmpty) continue;
+
+    const labelKey = (field.label || field.name).trim().toLowerCase();
+    const profileValue = profileMap.get(labelKey);
+    if (profileValue !== undefined) {
+      result[field.name] = profileValue;
+    }
+  }
+  return result;
+}
+
+/**
+ * Computes the baseline values for the rule engine: profile defaults under
+ * doc defaults under user-edited values. Caller passes only the user-edited
+ * values; this function layers profile and doc defaults beneath.
+ */
+function computeBaseline(
+  fields: PDFField[],
+  profile: ProfileDefaults | null,
+  docDefaults: Record<string, string | boolean | number> | undefined,
+  userEdited: Record<string, string | boolean | number>
+): Record<string, string | boolean | number> {
+  const withProfile = applyProfileDefaults(fields, profile, {});
+  return { ...withProfile, ...(docDefaults ?? {}), ...userEdited };
+}
 
 type ViewMode = 'list' | 'upload' | 'form' | 'loading';
 
@@ -41,10 +95,13 @@ export default function HomePage() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [documents, setDocuments] = useState<PDFDocument[]>([]);
+  const [profileDefaults, setProfileDefaults] = useState<ProfileDefaults | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fields, setFields] = useState<PDFField[]>([]);
   const [formValues, setFormValues] = useState<FormValues>({});
   const [untouchedDefaults, setUntouchedDefaults] = useState<Set<string>>(new Set());
+  const [ruleTouched, setRuleTouched] = useState<Map<string, string>>(new Map());
+  const [showRuleEditor, setShowRuleEditor] = useState(false);
   // Live filter for the form pane. Matches against label and internal name.
   const [searchQuery, setSearchQuery] = useState('');
   const [currentDocument, setCurrentDocument] = useState<PDFDocument | null>(null);
@@ -61,6 +118,12 @@ export default function HomePage() {
   // jump on the PDF preview pane.
   const [activeFieldName, setActiveFieldName] = useState<string | null>(null);
 
+  const rulesIndex = useMemo(() => {
+    const m = new Map<string, Rule>();
+    for (const r of currentDocument?.rules ?? []) m.set(r.id, r);
+    return m;
+  }, [currentDocument?.rules]);
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
@@ -70,6 +133,15 @@ export default function HomePage() {
   useEffect(() => {
     if (user) {
       loadDocuments();
+      (async () => {
+        try {
+          const p = await getProfile(user.uid);
+          setProfileDefaults(p);
+        } catch (e) {
+          console.warn('Error loading profile defaults:', e);
+          setProfileDefaults({ uid: user.uid, defaults: [], updatedAt: new Date() });
+        }
+      })();
       const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
       if (!hasSeenOnboarding) {
         setTimeout(() => setShowOnboarding(true), 500);
@@ -234,6 +306,7 @@ export default function HomePage() {
 
       setFormValues({});
       setUntouchedDefaults(new Set());
+      setRuleTouched(new Map());
       setSearchQuery('');
 
       // Tier 1: AcroForm widgets
@@ -296,13 +369,52 @@ export default function HomePage() {
   };
 
   const handleFormChange = (fieldName: string, value: any) => {
-    setFormValues((prev) => ({ ...prev, [fieldName]: value }));
+    // Compute the new user-edited values map: previous user-edited + this change.
+    // A field is "user-edited" if it's NOT in untouchedDefaults AND NOT in ruleTouched.
+    const newFormValues = { ...formValues, [fieldName]: value };
+
     setUntouchedDefaults((prev) => {
       if (!prev.has(fieldName)) return prev;
       const next = new Set(prev);
       next.delete(fieldName);
       return next;
     });
+    setRuleTouched((prev) => {
+      if (!prev.has(fieldName)) return prev;
+      const next = new Map(prev);
+      next.delete(fieldName);
+      return next;
+    });
+
+    // Build the user-edited subset for the new baseline.
+    const userEdited: Record<string, string | boolean | number> = {};
+    for (const [name, v] of Object.entries(newFormValues)) {
+      if (untouchedDefaults.has(name) && name !== fieldName) continue;
+      if (ruleTouched.has(name) && name !== fieldName) continue;
+      userEdited[name] = v as any;
+    }
+
+    const baseline = computeBaseline(
+      fields,
+      profileDefaults,
+      currentDocument?.defaultValues,
+      userEdited
+    );
+
+    const rules = currentDocument?.rules ?? [];
+    // Overwritable = fields the rules are allowed to write: untouchedDefaults
+    // (minus the just-edited field) ∪ previous ruleTouched (minus the just-edited field).
+    const overwritable = new Set<string>();
+    for (const n of untouchedDefaults) if (n !== fieldName) overwritable.add(n);
+    for (const n of ruleTouched.keys()) if (n !== fieldName) overwritable.add(n);
+    // Also: any field absent from the baseline is overwritable (rules can fill empties).
+    for (const f of fields) {
+      if (!(f.name in baseline) && f.name !== fieldName) overwritable.add(f.name);
+    }
+
+    const result = applyRules(rules, baseline, overwritable, fields);
+    setFormValues(result.newValues);
+    setRuleTouched(result.ruleTouched);
     setAutoSavedAt(new Date());
   };
 
@@ -383,8 +495,26 @@ export default function HomePage() {
 
   const handleDocumentSelect = async (doc: PDFDocument) => {
     setCurrentDocument(doc);
-    setFormValues({ ...(doc.defaultValues ?? {}) });
-    setUntouchedDefaults(new Set(Object.keys(doc.defaultValues ?? {})));
+    // Layer: profile (lowest) -> doc defaults (overrides profile).
+    const withProfile = applyProfileDefaults(
+      doc.fieldDefinitions,
+      profileDefaults,
+      {}
+    );
+    const layered = { ...withProfile, ...(doc.defaultValues ?? {}) };
+
+    // Run the rule engine over the seeded baseline.
+    const overwritable = new Set(Object.keys(layered));
+    const rulesResult = applyRules(
+      doc.rules ?? [],
+      layered,
+      overwritable,
+      doc.fieldDefinitions
+    );
+
+    setFormValues(rulesResult.newValues);
+    setUntouchedDefaults(new Set(Object.keys(rulesResult.newValues)));
+    setRuleTouched(rulesResult.ruleTouched);
     setSearchQuery('');
     setViewMode('loading');
     setProcessing(true);
@@ -485,6 +615,7 @@ export default function HomePage() {
     setFields([]);
     setFormValues({});
     setUntouchedDefaults(new Set());
+    setRuleTouched(new Map());
     setSearchQuery('');
     setCurrentDocument(null);
   };
@@ -509,6 +640,12 @@ export default function HomePage() {
     setUntouchedDefaults((prev) => {
       if (!prev.has(fieldName)) return prev;
       const next = new Set(prev);
+      next.delete(fieldName);
+      return next;
+    });
+    setRuleTouched((prev) => {
+      if (!prev.has(fieldName)) return prev;
+      const next = new Map(prev);
       next.delete(fieldName);
       return next;
     });
@@ -619,14 +756,20 @@ export default function HomePage() {
         const pdfPath = `users/${user.uid}/documents/${currentDocument.id}/original.pdf`;
         await uploadPDF(modifiedFile, pdfPath);
         const prunedDefaults = pruneDefaults(createdFields, currentDocument.defaultValues);
+        const prunedRules = pruneRules(createdFields, currentDocument.rules);
+        // pruneRules returns rules with optional _missingFieldRefs annotations.
+        // Strip the annotation before persisting (it's a UI-only artifact).
+        const cleanRules = prunedRules.map(({ _missingFieldRefs, ...r }) => r);
         await updateDocument(currentDocument.id, {
           fieldDefinitions: createdFields,
           defaultValues: prunedDefaults,
+          rules: cleanRules,
         });
         setCurrentDocument({
           ...currentDocument,
           fieldDefinitions: createdFields,
           defaultValues: prunedDefaults,
+          rules: cleanRules,
         });
       } catch (error) {
         console.error('Error saving modified PDF:', error);
@@ -938,6 +1081,15 @@ export default function HomePage() {
                 onPin={handlePin}
                 onUnpin={handleUnpin}
                 onUpdateDefault={handleUpdateDefault}
+                ruleTouched={ruleTouched}
+                rulesIndex={rulesIndex}
+                onClearRuleTouched={(fieldName) => {
+                  setRuleTouched((prev) => {
+                    const next = new Map(prev);
+                    next.delete(fieldName);
+                    return next;
+                  });
+                }}
                 searchQuery={searchQuery}
               />
             </div>
@@ -974,6 +1126,16 @@ export default function HomePage() {
                   >
                     <PenLine className="co-ico co-ico-pencil w-3.5 h-3.5" />
                     Add fields
+                  </button>
+                )}
+                {currentDocument && (
+                  <button
+                    onClick={() => setShowRuleEditor(true)}
+                    className="btn btn-ghost btn-sm flex items-center gap-1.5"
+                    title="Edit rules"
+                  >
+                    <Settings2 className="w-4 h-4" />
+                    Rules{currentDocument.rules?.length ? ` (${currentDocument.rules.length})` : ''}
                   </button>
                 )}
                 {!currentDocument && (
@@ -1046,14 +1208,18 @@ export default function HomePage() {
             setFields(updatedFields);
             if (currentDocument) {
               const prunedDefaults = pruneDefaults(updatedFields, currentDocument.defaultValues);
+              const prunedRules = pruneRules(updatedFields, currentDocument.rules);
+              const cleanRules = prunedRules.map(({ _missingFieldRefs, ...r }) => r);
               setCurrentDocument({
                 ...currentDocument,
                 fieldDefinitions: updatedFields,
                 defaultValues: prunedDefaults,
+                rules: cleanRules,
               });
               updateDocument(currentDocument.id, {
                 fieldDefinitions: updatedFields,
                 defaultValues: prunedDefaults,
+                rules: cleanRules,
               }).catch((error) => {
                 console.error('Error updating document fields:', error);
               });
@@ -1072,6 +1238,53 @@ export default function HomePage() {
           pdfFile={selectedFile}
           onFieldsCreated={handleFieldsCreated}
           onClose={() => setShowFieldCreator(false)}
+        />
+      )}
+
+      {/* Rule Editor Modal */}
+      {showRuleEditor && currentDocument && (
+        <RuleEditor
+          documentId={currentDocument.id}
+          rules={currentDocument.rules ?? []}
+          fields={fields}
+          formValues={formValues}
+          chatHistory={currentDocument.chatHistory ?? []}
+          onClose={() => setShowRuleEditor(false)}
+          onRulesChange={async (nextRules) => {
+            const prev = currentDocument.rules ?? [];
+            setCurrentDocument({ ...currentDocument, rules: nextRules });
+            try {
+              await saveRules(currentDocument.id, nextRules);
+            } catch (e) {
+              console.warn('Error saving rules:', e);
+              setCurrentDocument({ ...currentDocument, rules: prev });
+            }
+            // After saving, re-run the engine — rule changes may immediately affect
+            // the form-fill view.
+            const userEdited: Record<string, string | boolean | number> = {};
+            for (const [name, v] of Object.entries(formValues)) {
+              if (untouchedDefaults.has(name)) continue;
+              if (ruleTouched.has(name)) continue;
+              userEdited[name] = v as any;
+            }
+            const baseline = computeBaseline(
+              fields,
+              profileDefaults,
+              currentDocument.defaultValues,
+              userEdited
+            );
+            const overwritable = new Set<string>([
+              ...untouchedDefaults,
+              ...ruleTouched.keys(),
+              ...fields.filter((f) => !(f.name in baseline)).map((f) => f.name),
+            ]);
+            const result = applyRules(nextRules, baseline, overwritable, fields);
+            setFormValues(result.newValues);
+            setRuleTouched(result.ruleTouched);
+          }}
+          onChatHistoryChange={(nextHistory) => {
+            setCurrentDocument({ ...currentDocument, chatHistory: nextHistory });
+          }}
         />
       )}
     </div>
