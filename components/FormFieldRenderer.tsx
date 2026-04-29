@@ -24,6 +24,8 @@ interface FormFieldRendererProps {
   onPin?: (fieldName: string) => void;
   onUnpin?: (fieldName: string) => void;
   onUpdateDefault?: (fieldName: string) => void;
+  // Live filter — case-insensitive substring match against label and name.
+  searchQuery?: string;
 }
 
 const sortFieldsByDocumentOrder = (fields: PDFField[]): PDFField[] => {
@@ -92,11 +94,35 @@ export default function FormFieldRenderer({
   onPin,
   onUnpin,
   onUpdateDefault,
+  searchQuery,
 }: FormFieldRendererProps) {
-  const sortedFields = useMemo(() => sortFieldsByDocumentOrder(fields), [fields]);
+  // Filter first, then sort+section. Sections are derived from filtered
+  // fields' positions, so a single matching field still gets a section
+  // header if it stands alone.
+  const filteredFields = useMemo(() => {
+    const q = (searchQuery ?? '').trim().toLowerCase();
+    if (!q) return fields;
+    return fields.filter((f) => {
+      const label = (f.label ?? '').toLowerCase();
+      const name = f.name.toLowerCase();
+      return label.includes(q) || name.includes(q);
+    });
+  }, [fields, searchQuery]);
+
+  const sortedFields = useMemo(() => sortFieldsByDocumentOrder(filteredFields), [filteredFields]);
   const sections = useMemo(() => groupIntoSections(sortedFields), [sortedFields]);
 
+  const isFiltering = !!(searchQuery && searchQuery.trim());
+
   if (sortedFields.length === 0) {
+    if (isFiltering) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-ink-soft text-[14px]">No fields match &ldquo;{searchQuery}&rdquo;.</p>
+          <p className="text-ink-faint text-[12.5px] mt-1.5">Try a different search term.</p>
+        </div>
+      );
+    }
     return (
       <div className="text-center py-12">
         <p className="text-ink-soft text-[14px]">No form fields detected in this PDF.</p>
