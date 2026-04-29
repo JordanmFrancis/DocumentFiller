@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { PDFDocument, PDFField } from '@/types/pdf';
+import { Rule, ChatMessage } from '@/types/rule';
 
 const DOCUMENTS_COLLECTION = 'documents';
 
@@ -21,6 +22,8 @@ export interface DocumentData {
   originalPdfUrl: string;
   fieldDefinitions: PDFField[];
   defaultValues?: Record<string, string | boolean | number>;
+  rules?: Rule[];
+  chatHistory?: ChatMessage[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
   userId: string;
