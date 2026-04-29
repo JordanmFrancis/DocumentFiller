@@ -12,7 +12,7 @@ import PDFPreview from '@/components/PDFPreview';
 import { PDFField, PDFDocument, FormValues } from '@/types/pdf';
 import { fillPDF } from '@/lib/pdfFiller';
 import { uploadPDF, downloadPDF } from '@/lib/firestore/storage';
-import { saveDocument, getUserDocuments, deleteDocument, updateDocument, pruneDefaults } from '@/lib/firestore/documents';
+import { saveDocument, getUserDocuments, deleteDocument, updateDocument, pruneDefaults, pruneRules } from '@/lib/firestore/documents';
 import { getProfile } from '@/lib/firestore/profile';
 import { ProfileDefaults } from '@/types/user';
 import {
@@ -749,14 +749,20 @@ export default function HomePage() {
         const pdfPath = `users/${user.uid}/documents/${currentDocument.id}/original.pdf`;
         await uploadPDF(modifiedFile, pdfPath);
         const prunedDefaults = pruneDefaults(createdFields, currentDocument.defaultValues);
+        const prunedRules = pruneRules(createdFields, currentDocument.rules);
+        // pruneRules returns rules with optional _missingFieldRefs annotations.
+        // Strip the annotation before persisting (it's a UI-only artifact).
+        const cleanRules = prunedRules.map(({ _missingFieldRefs, ...r }) => r);
         await updateDocument(currentDocument.id, {
           fieldDefinitions: createdFields,
           defaultValues: prunedDefaults,
+          rules: cleanRules,
         });
         setCurrentDocument({
           ...currentDocument,
           fieldDefinitions: createdFields,
           defaultValues: prunedDefaults,
+          rules: cleanRules,
         });
       } catch (error) {
         console.error('Error saving modified PDF:', error);
@@ -1169,14 +1175,18 @@ export default function HomePage() {
             setFields(updatedFields);
             if (currentDocument) {
               const prunedDefaults = pruneDefaults(updatedFields, currentDocument.defaultValues);
+              const prunedRules = pruneRules(updatedFields, currentDocument.rules);
+              const cleanRules = prunedRules.map(({ _missingFieldRefs, ...r }) => r);
               setCurrentDocument({
                 ...currentDocument,
                 fieldDefinitions: updatedFields,
                 defaultValues: prunedDefaults,
+                rules: cleanRules,
               });
               updateDocument(currentDocument.id, {
                 fieldDefinitions: updatedFields,
                 defaultValues: prunedDefaults,
+                rules: cleanRules,
               }).catch((error) => {
                 console.error('Error updating document fields:', error);
               });
