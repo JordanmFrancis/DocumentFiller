@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { logout } from '@/lib/firebase/auth';
 import { useRouter } from 'next/navigation';
-import { Search, HelpCircle, LogOut } from 'lucide-react';
+import { Search, HelpCircle, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuthContext } from '../Auth/AuthProvider';
 
 interface HeaderProps {
@@ -88,6 +88,15 @@ export default function Header({ onShowTutorial, activeNav = 'documents', onNavC
               <HelpCircle className="co-ico co-ico-pop w-4 h-4" />
             </button>
           )}
+
+          {/* Profile — defaults page */}
+          <button
+            onClick={() => router.push('/profile')}
+            className="btn btn-ghost btn-sm"
+            title="Profile defaults"
+          >
+            <UserIcon className="co-ico co-ico-pop w-4 h-4" />
+          </button>
 
           {/* Logout — swing on hover */}
           <button
