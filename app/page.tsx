@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/components/Auth/AuthProvider';
@@ -113,6 +113,12 @@ export default function HomePage() {
   // Currently focused field on the form side — drives the highlight + page
   // jump on the PDF preview pane.
   const [activeFieldName, setActiveFieldName] = useState<string | null>(null);
+
+  const rulesIndex = useMemo(() => {
+    const m = new Map<string, Rule>();
+    for (const r of currentDocument?.rules ?? []) m.set(r.id, r);
+    return m;
+  }, [currentDocument?.rules]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -1037,6 +1043,15 @@ export default function HomePage() {
                 onPin={handlePin}
                 onUnpin={handleUnpin}
                 onUpdateDefault={handleUpdateDefault}
+                ruleTouched={ruleTouched}
+                rulesIndex={rulesIndex}
+                onClearRuleTouched={(fieldName) => {
+                  setRuleTouched((prev) => {
+                    const next = new Map(prev);
+                    next.delete(fieldName);
+                    return next;
+                  });
+                }}
               />
             </div>
 

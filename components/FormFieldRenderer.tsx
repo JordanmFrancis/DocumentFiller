@@ -3,9 +3,10 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { PDFField, FormValues } from '@/types/pdf';
+import type { Rule } from '@/types/rule';
 import FieldInput from './FieldInput';
 import FieldLabelEditor from './FieldLabelEditor';
-import { Eye, Check, Pin, RotateCcw } from 'lucide-react';
+import { Eye, Check, Pin, RotateCcw, Sparkles } from 'lucide-react';
 
 interface FormFieldRendererProps {
   fields: PDFField[];
@@ -24,6 +25,9 @@ interface FormFieldRendererProps {
   onPin?: (fieldName: string) => void;
   onUnpin?: (fieldName: string) => void;
   onUpdateDefault?: (fieldName: string) => void;
+  ruleTouched?: Map<string, string>;
+  rulesIndex?: Map<string, Rule>;
+  onClearRuleTouched?: (fieldName: string) => void;
 }
 
 const sortFieldsByDocumentOrder = (fields: PDFField[]): PDFField[] => {
@@ -92,6 +96,9 @@ export default function FormFieldRenderer({
   onPin,
   onUnpin,
   onUpdateDefault,
+  ruleTouched,
+  rulesIndex,
+  onClearRuleTouched,
 }: FormFieldRendererProps) {
   const sortedFields = useMemo(() => sortFieldsByDocumentOrder(fields), [fields]);
   const sections = useMemo(() => groupIntoSections(sortedFields), [sortedFields]);
@@ -155,6 +162,24 @@ export default function FormFieldRenderer({
                     {field.required && !isFilled && (
                       <span className="text-danger text-[13px]" title="Required">*</span>
                     )}
+                    {ruleTouched?.has(field.name) && (() => {
+                      const ruleId = ruleTouched.get(field.name);
+                      const rule = ruleId ? rulesIndex?.get(ruleId) : undefined;
+                      const ruleSummaryText = rule
+                        ? `Filled by rule: ${rule.name || ruleId?.slice(0, 6)}`
+                        : 'Filled by a rule';
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => onClearRuleTouched?.(field.name)}
+                          className="p-1 rounded text-accent hover:bg-accent-tint"
+                          title={`${ruleSummaryText} — click to override manually`}
+                          aria-label="Override rule-filled value"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" strokeWidth={1.8} />
+                        </button>
+                      );
+                    })()}
                     {(onPin || onUnpin) && (() => {
                       const hasDefault = defaultValues?.[field.name] !== undefined;
                       const fieldValue = values[field.name];
