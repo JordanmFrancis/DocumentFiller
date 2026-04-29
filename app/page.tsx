@@ -22,6 +22,8 @@ import {
   ArrowLeft,
   ArrowUp,
   Plus,
+  Search,
+  X,
 } from 'lucide-react';
 import PDFViewerEditor from '@/components/PDFViewerEditor';
 import PDFFieldCreator from '@/components/PDFFieldCreator';
@@ -43,6 +45,8 @@ export default function HomePage() {
   const [fields, setFields] = useState<PDFField[]>([]);
   const [formValues, setFormValues] = useState<FormValues>({});
   const [untouchedDefaults, setUntouchedDefaults] = useState<Set<string>>(new Set());
+  // Live filter for the form pane. Matches against label and internal name.
+  const [searchQuery, setSearchQuery] = useState('');
   const [currentDocument, setCurrentDocument] = useState<PDFDocument | null>(null);
   const [processing, setProcessing] = useState(false);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
@@ -230,6 +234,7 @@ export default function HomePage() {
 
       setFormValues({});
       setUntouchedDefaults(new Set());
+      setSearchQuery('');
 
       // Tier 1: AcroForm widgets
       if (tier1Fields.length > 0) {
@@ -380,6 +385,7 @@ export default function HomePage() {
     setCurrentDocument(doc);
     setFormValues({ ...(doc.defaultValues ?? {}) });
     setUntouchedDefaults(new Set(Object.keys(doc.defaultValues ?? {})));
+    setSearchQuery('');
     setViewMode('loading');
     setProcessing(true);
 
@@ -479,6 +485,7 @@ export default function HomePage() {
     setFields([]);
     setFormValues({});
     setUntouchedDefaults(new Set());
+    setSearchQuery('');
     setCurrentDocument(null);
   };
 
@@ -889,6 +896,31 @@ export default function HomePage() {
                   {filledFieldCount}/{totalFields}
                 </span>
               </div>
+
+              {/* Field search — instant filter as you type. Matches against
+                  the user-visible label and the internal field name. */}
+              <div className="relative mt-3">
+                <Search className="w-3.5 h-3.5 text-ink-faint absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search fields…"
+                  className="input !pl-8 !pr-8 !py-2 !text-[13px]"
+                  aria-label="Search fields"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-ink-faint hover:text-ink hover:bg-paper-edge"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Form body — independent scroll */}
@@ -906,6 +938,7 @@ export default function HomePage() {
                 onPin={handlePin}
                 onUnpin={handleUnpin}
                 onUpdateDefault={handleUpdateDefault}
+                searchQuery={searchQuery}
               />
             </div>
 
