@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { PDFDocument, PDFField } from '@/types/pdf';
-import { Rule, ChatMessage } from '@/types/rule';
+import { Rule, ChatMessage, ConditionGroup, isConditionGroup, RuleAction } from '@/types/rule';
 
 const DOCUMENTS_COLLECTION = 'documents';
 
@@ -168,4 +168,40 @@ export function pruneDefaults(
   return Object.fromEntries(
     Object.entries(defaults).filter(([name]) => validNames.has(name))
   );
+}
+
+/**
+ * Returns rules unchanged but with a `_missingFieldRefs?: string[]` annotation
+ * on each rule that references field names not present in `fields`. The UI
+ * uses this to warn the user. Rules are NEVER deleted by this function —
+ * field renames happen during PDF editing and silent rule deletion would
+ * destroy the user's work.
+ */
+export function pruneRules(
+  fields: PDFField[],
+  rules: Rule[] | undefined
+): Array<Rule & { _missingFieldRefs?: string[] }> {
+  if (!rules) return [];
+  const validNames = new Set(fields.map((f) => f.name));
+
+  function collectGroupRefs(group: ConditionGroup): string[] {
+    const out: string[] = [];
+    for (const c of group.conditions) {
+      if (isConditionGroup(c)) {
+        out.push(...collectGroupRefs(c));
+      } else {
+        out.push(c.fieldName);
+      }
+    }
+    return out;
+  }
+
+  return rules.map((rule) => {
+    const refs = new Set<string>([
+      ...collectGroupRefs(rule.conditionGroup),
+      ...rule.actions.map((a: RuleAction) => a.fieldName),
+    ]);
+    const missing = [...refs].filter((name) => !validNames.has(name));
+    return missing.length ? { ...rule, _missingFieldRefs: missing } : rule;
+  });
 }
