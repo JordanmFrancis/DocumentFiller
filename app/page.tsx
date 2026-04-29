@@ -24,6 +24,7 @@ import {
   ArrowLeft,
   ArrowUp,
   Plus,
+  Settings2,
 } from 'lucide-react';
 import PDFViewerEditor from '@/components/PDFViewerEditor';
 import PDFFieldCreator from '@/components/PDFFieldCreator';
@@ -33,6 +34,10 @@ import { detectAIVisionFields } from '@/lib/aiVisualFieldDetector';
 import { detectAnnotationFields } from '@/lib/annotationFieldDetector';
 import { extractFieldContextsClient } from '@/lib/extractFieldContextsClient';
 import { labelFieldsWithVision } from '@/lib/aiLabelGeneratorVision';
+import { Rule } from '@/types/rule';
+import { applyRules } from '@/lib/ruleEngine';
+import { saveRules } from '@/lib/firestore/rules';
+import RuleEditor from '@/components/Rules/RuleEditor';
 
 function applyProfileDefaults(
   fields: PDFField[],
@@ -66,6 +71,21 @@ function applyProfileDefaults(
   return result;
 }
 
+/**
+ * Computes the baseline values for the rule engine: profile defaults under
+ * doc defaults under user-edited values. Caller passes only the user-edited
+ * values; this function layers profile and doc defaults beneath.
+ */
+function computeBaseline(
+  fields: PDFField[],
+  profile: ProfileDefaults | null,
+  docDefaults: Record<string, string | boolean | number> | undefined,
+  userEdited: Record<string, string | boolean | number>
+): Record<string, string | boolean | number> {
+  const withProfile = applyProfileDefaults(fields, profile, {});
+  return { ...withProfile, ...(docDefaults ?? {}), ...userEdited };
+}
+
 type ViewMode = 'list' | 'upload' | 'form' | 'loading';
 
 export default function HomePage() {
@@ -78,6 +98,8 @@ export default function HomePage() {
   const [fields, setFields] = useState<PDFField[]>([]);
   const [formValues, setFormValues] = useState<FormValues>({});
   const [untouchedDefaults, setUntouchedDefaults] = useState<Set<string>>(new Set());
+  const [ruleTouched, setRuleTouched] = useState<Map<string, string>>(new Map());
+  const [showRuleEditor, setShowRuleEditor] = useState(false);
   const [currentDocument, setCurrentDocument] = useState<PDFDocument | null>(null);
   const [processing, setProcessing] = useState(false);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
@@ -274,6 +296,7 @@ export default function HomePage() {
 
       setFormValues({});
       setUntouchedDefaults(new Set());
+      setRuleTouched(new Map());
 
       // Tier 1: AcroForm widgets
       if (tier1Fields.length > 0) {
@@ -335,13 +358,52 @@ export default function HomePage() {
   };
 
   const handleFormChange = (fieldName: string, value: any) => {
-    setFormValues((prev) => ({ ...prev, [fieldName]: value }));
+    // Compute the new user-edited values map: previous user-edited + this change.
+    // A field is "user-edited" if it's NOT in untouchedDefaults AND NOT in ruleTouched.
+    const newFormValues = { ...formValues, [fieldName]: value };
+
     setUntouchedDefaults((prev) => {
       if (!prev.has(fieldName)) return prev;
       const next = new Set(prev);
       next.delete(fieldName);
       return next;
     });
+    setRuleTouched((prev) => {
+      if (!prev.has(fieldName)) return prev;
+      const next = new Map(prev);
+      next.delete(fieldName);
+      return next;
+    });
+
+    // Build the user-edited subset for the new baseline.
+    const userEdited: Record<string, string | boolean | number> = {};
+    for (const [name, v] of Object.entries(newFormValues)) {
+      if (untouchedDefaults.has(name) && name !== fieldName) continue;
+      if (ruleTouched.has(name) && name !== fieldName) continue;
+      userEdited[name] = v as any;
+    }
+
+    const baseline = computeBaseline(
+      fields,
+      profileDefaults,
+      currentDocument?.defaultValues,
+      userEdited
+    );
+
+    const rules = currentDocument?.rules ?? [];
+    // Overwritable = fields the rules are allowed to write: untouchedDefaults
+    // (minus the just-edited field) ∪ previous ruleTouched (minus the just-edited field).
+    const overwritable = new Set<string>();
+    for (const n of untouchedDefaults) if (n !== fieldName) overwritable.add(n);
+    for (const n of ruleTouched.keys()) if (n !== fieldName) overwritable.add(n);
+    // Also: any field absent from the baseline is overwritable (rules can fill empties).
+    for (const f of fields) {
+      if (!(f.name in baseline) && f.name !== fieldName) overwritable.add(f.name);
+    }
+
+    const result = applyRules(rules, baseline, overwritable, fields);
+    setFormValues(result.newValues);
+    setRuleTouched(result.ruleTouched);
     setAutoSavedAt(new Date());
   };
 
@@ -429,8 +491,19 @@ export default function HomePage() {
       {}
     );
     const layered = { ...withProfile, ...(doc.defaultValues ?? {}) };
-    setFormValues(layered);
-    setUntouchedDefaults(new Set(Object.keys(layered)));
+
+    // Run the rule engine over the seeded baseline.
+    const overwritable = new Set(Object.keys(layered));
+    const rulesResult = applyRules(
+      doc.rules ?? [],
+      layered,
+      overwritable,
+      doc.fieldDefinitions
+    );
+
+    setFormValues(rulesResult.newValues);
+    setUntouchedDefaults(new Set(Object.keys(rulesResult.newValues)));
+    setRuleTouched(rulesResult.ruleTouched);
     setViewMode('loading');
     setProcessing(true);
 
@@ -530,6 +603,7 @@ export default function HomePage() {
     setFields([]);
     setFormValues({});
     setUntouchedDefaults(new Set());
+    setRuleTouched(new Map());
     setCurrentDocument(null);
   };
 
@@ -553,6 +627,12 @@ export default function HomePage() {
     setUntouchedDefaults((prev) => {
       if (!prev.has(fieldName)) return prev;
       const next = new Set(prev);
+      next.delete(fieldName);
+      return next;
+    });
+    setRuleTouched((prev) => {
+      if (!prev.has(fieldName)) return prev;
+      const next = new Map(prev);
       next.delete(fieldName);
       return next;
     });
@@ -994,6 +1074,16 @@ export default function HomePage() {
                     Add fields
                   </button>
                 )}
+                {currentDocument && (
+                  <button
+                    onClick={() => setShowRuleEditor(true)}
+                    className="btn btn-ghost btn-sm flex items-center gap-1.5"
+                    title="Edit rules"
+                  >
+                    <Settings2 className="w-4 h-4" />
+                    Rules{currentDocument.rules?.length ? ` (${currentDocument.rules.length})` : ''}
+                  </button>
+                )}
                 {!currentDocument && (
                   <button onClick={handleSaveDocument} disabled={processing} className="btn btn-outline btn-sm">
                     <Save className="co-ico co-ico-bounce w-3.5 h-3.5" />
@@ -1090,6 +1180,48 @@ export default function HomePage() {
           pdfFile={selectedFile}
           onFieldsCreated={handleFieldsCreated}
           onClose={() => setShowFieldCreator(false)}
+        />
+      )}
+
+      {/* Rule Editor Modal */}
+      {showRuleEditor && currentDocument && (
+        <RuleEditor
+          rules={currentDocument.rules ?? []}
+          fields={fields}
+          formValues={formValues}
+          onClose={() => setShowRuleEditor(false)}
+          onRulesChange={async (nextRules) => {
+            const prev = currentDocument.rules ?? [];
+            setCurrentDocument({ ...currentDocument, rules: nextRules });
+            try {
+              await saveRules(currentDocument.id, nextRules);
+            } catch (e) {
+              console.warn('Error saving rules:', e);
+              setCurrentDocument({ ...currentDocument, rules: prev });
+            }
+            // After saving, re-run the engine — rule changes may immediately affect
+            // the form-fill view.
+            const userEdited: Record<string, string | boolean | number> = {};
+            for (const [name, v] of Object.entries(formValues)) {
+              if (untouchedDefaults.has(name)) continue;
+              if (ruleTouched.has(name)) continue;
+              userEdited[name] = v as any;
+            }
+            const baseline = computeBaseline(
+              fields,
+              profileDefaults,
+              currentDocument.defaultValues,
+              userEdited
+            );
+            const overwritable = new Set<string>([
+              ...untouchedDefaults,
+              ...ruleTouched.keys(),
+              ...fields.filter((f) => !(f.name in baseline)).map((f) => f.name),
+            ]);
+            const result = applyRules(nextRules, baseline, overwritable, fields);
+            setFormValues(result.newValues);
+            setRuleTouched(result.ruleTouched);
+          }}
         />
       )}
     </div>
