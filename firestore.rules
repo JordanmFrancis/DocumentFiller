@@ -3,17 +3,16 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Documents collection - users can only access their own documents
     match /documents/{documentId} {
-      // Allow read if user owns the document
       allow read: if request.auth != null && request.auth.uid == resource.data.userId;
-      
-      // Allow create if user is authenticated and sets their own userId
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      
-      // Allow update if user owns the document
       allow update: if request.auth != null && request.auth.uid == resource.data.userId;
-      
-      // Allow delete if user owns the document
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // User profiles - keyed by uid, only the owning user can read/write.
+    match /userProfiles/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid;
     }
   }
 }
