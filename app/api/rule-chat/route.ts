@@ -10,10 +10,16 @@
 // mutations to the client. The client applies them and persists via
 // lib/firestore/rules.ts. We do NOT touch Firestore from this route — the
 // client owns persistence.
+//
+// Provider: Anthropic (Claude Sonnet 4.5). System prompt + fields list use
+// prompt caching so multi-turn conversations only pay for them once.
 import { NextRequest, NextResponse } from 'next/server';
+import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import type { Rule, ChatMessage } from '@/types/rule';
 import type { PDFField } from '@/types/pdf';
+
+const MODEL = 'claude-sonnet-4-5-20250929';
 
 const SYSTEM_PROMPT = `You help a realtor configure conditional autofill rules for a PDF form. When the user describes a rule, call add_rule. When they ask to change one, call edit_rule. When they ask to remove one, call delete_rule (the client will confirm with the user before applying). When they ask "why" or "what rules exist", call list_rules and answer in plain English using the result.
 
@@ -73,67 +79,56 @@ const DeleteRuleSchema = z.object({
   ruleId: z.string().min(1),
 });
 
-const TOOLS = [
+// Anthropic tool format: `name`, `description`, `input_schema` (JSON schema).
+const TOOLS: Anthropic.Tool[] = [
   {
-    type: 'function' as const,
-    function: {
-      name: 'add_rule',
-      description: 'Add a new rule. Returns the new rule ID.',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: 'Optional human label.' },
-          conditionGroup: {
-            type: 'object',
-            properties: {
-              connector: { type: 'string', enum: ['AND', 'OR'] },
-              conditions: { type: 'array' },
-            },
-            required: ['connector', 'conditions'],
+    name: 'add_rule',
+    description: 'Add a new rule. Returns the new rule ID.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Optional human label.' },
+        conditionGroup: {
+          type: 'object',
+          properties: {
+            connector: { type: 'string', enum: ['AND', 'OR'] },
+            conditions: { type: 'array' },
           },
-          actions: { type: 'array', minItems: 1 },
+          required: ['connector', 'conditions'],
         },
-        required: ['conditionGroup', 'actions'],
+        actions: { type: 'array', minItems: 1 },
       },
+      required: ['conditionGroup', 'actions'],
     },
   },
   {
-    type: 'function' as const,
-    function: {
-      name: 'edit_rule',
-      description: 'Edit an existing rule. Pass only the fields you want to change.',
-      parameters: {
-        type: 'object',
-        properties: {
-          ruleId: { type: 'string' },
-          name: { type: 'string' },
-          conditionGroup: { type: 'object' },
-          actions: { type: 'array' },
-        },
-        required: ['ruleId'],
+    name: 'edit_rule',
+    description: 'Edit an existing rule. Pass only the fields you want to change.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        ruleId: { type: 'string' },
+        name: { type: 'string' },
+        conditionGroup: { type: 'object' },
+        actions: { type: 'array' },
       },
+      required: ['ruleId'],
     },
   },
   {
-    type: 'function' as const,
-    function: {
-      name: 'delete_rule',
-      description:
-        'Request deletion of a rule. The client will confirm with the user before applying.',
-      parameters: {
-        type: 'object',
-        properties: { ruleId: { type: 'string' } },
-        required: ['ruleId'],
-      },
+    name: 'delete_rule',
+    description:
+      'Request deletion of a rule. The client will confirm with the user before applying.',
+    input_schema: {
+      type: 'object',
+      properties: { ruleId: { type: 'string' } },
+      required: ['ruleId'],
     },
   },
   {
-    type: 'function' as const,
-    function: {
-      name: 'list_rules',
-      description: 'List all current rules. Use this when the user asks about existing rules.',
-      parameters: { type: 'object', properties: {} },
-    },
+    name: 'list_rules',
+    description: 'List all current rules. Use this when the user asks about existing rules.',
+    input_schema: { type: 'object', properties: {} },
   },
 ];
 
@@ -159,28 +154,31 @@ function newRuleIdServer(): string {
   return Math.random().toString(36).slice(2, 14);
 }
 
-function buildSystemContext(fields: PDFField[], rules: Rule[]): string {
+function buildFieldsContext(fields: PDFField[]): string {
   const fieldList = fields
     .map((f) => {
       const opts = f.options?.length ? ` options=[${f.options.join(', ')}]` : '';
       return `- ${f.name} (label="${f.label || f.name}", type=${f.type}${opts})`;
     })
     .join('\n');
+  return `Document fields:\n${fieldList}`;
+}
 
-  const ruleList =
-    rules.length === 0
-      ? 'No rules yet.'
-      : rules
-          .map((r) => `- ${r.id}: ${r.name || '(unnamed)'} — ${JSON.stringify(r)}`)
-          .join('\n');
-
-  return `Document fields:\n${fieldList}\n\nExisting rules:\n${ruleList}`;
+function buildRulesContext(rules: Rule[]): string {
+  if (rules.length === 0) return 'Existing rules: none.';
+  const ruleList = rules
+    .map((r) => `- ${r.id}: ${r.name || '(unnamed)'} — ${JSON.stringify(r)}`)
+    .join('\n');
+  return `Existing rules:\n${ruleList}`;
 }
 
 export async function POST(request: NextRequest) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'ANTHROPIC_API_KEY not configured' },
+      { status: 503 }
+    );
   }
 
   let body: ChatRequestBody;
@@ -197,56 +195,74 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing userMessage' }, { status: 400 });
   }
 
-  const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'system', content: buildSystemContext(body.fields, body.rules || []) },
-    ...((body.history || []).map((m) => ({ role: m.role, content: m.content }))),
-    { role: 'user', content: body.userMessage },
+  const client = new Anthropic({ apiKey });
+
+  // System blocks. The first two are cacheable — they stay constant across
+  // turns within a single chat session, and the fields list is constant
+  // unless the document is edited. Rules change frequently (every add/edit),
+  // so it's NOT marked cacheable.
+  const systemBlocks: Anthropic.TextBlockParam[] = [
+    {
+      type: 'text',
+      text: SYSTEM_PROMPT,
+      cache_control: { type: 'ephemeral' },
+    },
+    {
+      type: 'text',
+      text: buildFieldsContext(body.fields),
+      cache_control: { type: 'ephemeral' },
+    },
+    {
+      type: 'text',
+      text: buildRulesContext(body.rules || []),
+    },
   ];
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
+  // History + new user message. Anthropic alternates user/assistant; the
+  // chat history we persist is already in that shape.
+  const messages: Anthropic.MessageParam[] = [
+    ...((body.history || []).map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }))),
+    { role: 'user' as const, content: body.userMessage },
+  ];
+
+  let response: Anthropic.Message;
+  try {
+    response = await client.messages.create({
+      model: MODEL,
+      max_tokens: 1500,
+      system: systemBlocks,
       messages,
       tools: TOOLS,
-      tool_choice: 'auto',
-      temperature: 0.1,
-      max_tokens: 1500,
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text().catch(() => '');
-    console.error('OpenAI rule-chat error:', errText.slice(0, 300));
+    });
+  } catch (e: any) {
+    console.error('Anthropic rule-chat error:', e?.message?.slice(0, 300) ?? e);
     return NextResponse.json(
-      { error: 'OpenAI request failed' },
+      { error: `Anthropic request failed: ${e?.message ?? 'unknown'}` },
       { status: 502 }
     );
   }
 
-  const data = await response.json().catch(() => null);
-  const choice = data?.choices?.[0];
-  const reply: string = choice?.message?.content || '';
-  const toolCalls: Array<{ id: string; function: { name: string; arguments: string } }> =
-    choice?.message?.tool_calls || [];
+  // Extract text reply and tool uses from the response. Anthropic returns
+  // `content` as an array of blocks; tool inputs come pre-parsed.
+  let reply = '';
+  const toolUses: Array<{ name: string; input: any }> = [];
+  for (const block of response.content) {
+    if (block.type === 'text') {
+      reply += block.text;
+    } else if (block.type === 'tool_use') {
+      toolUses.push({ name: block.name, input: block.input });
+    }
+  }
 
   const mutations: RuleMutation[] = [];
   const rawToolCalls: Array<{ tool: string; args: any; error?: string }> = [];
 
-  for (const tc of toolCalls) {
-    const name = tc.function.name;
-    let args: any;
-    try {
-      args = JSON.parse(tc.function.arguments);
-    } catch (e) {
-      rawToolCalls.push({ tool: name, args: tc.function.arguments, error: 'Invalid JSON' });
-      continue;
-    }
+  for (const tu of toolUses) {
+    const name = tu.name;
+    const args = tu.input;
 
     if (name === 'add_rule') {
       const parsed = AddRuleSchema.safeParse(args);
